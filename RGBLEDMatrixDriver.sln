@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29102.190
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "RGBLEDMatrixDriver", "RGBLEDMatrixDriver\RGBLEDMatrixDriver.pyproj", "{2397B613-283F-4FA0-8300-30ACF18AF0E4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2397B613-283F-4FA0-8300-30ACF18AF0E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2397B613-283F-4FA0-8300-30ACF18AF0E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9E809A43-1DD4-45DC-8F4C-A31376384B81}
+	EndGlobalSection
+EndGlobal
