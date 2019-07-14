@@ -1,32 +1,13 @@
 import os
 import subprocess
-import time
-import serial
-from serial import Serial
-#import spidev   # WARNING: Only available for Linux
 import logging
 from logging.handlers import RotatingFileHandler
-from threading import Thread
+from threading import Thread, Lock
 import json
 
 import settings
-
-
-def drawLEDData(logger):
-    try:
-        pass
-
-    except Exception as ex:
-        logger.debug("Exception occured in '{}()': {}".format(threadDrawLEDDate.__name__, ex))
-
-
-def threadReadDataFromHostCOM(logger, port):
-    try:
-        with Serial(**settings.HOST_COM_PORT_CONFIG) as ser:
-            pass
-
-    except Exception as ex:
-        logger.debug("Exception occured in '{}()': {}".format(readLEDDataFromHostForever.__name__, ex))
+from host_funcs import threadReadDataFromHostCOMForever
+from led_funcs import drawLEDDataForever
 
 
 if __name__ == '__main__':
@@ -39,28 +20,38 @@ if __name__ == '__main__':
         handler.setFormatter(formatter)
 
         # Set high priority for this process by upping its nice value
-        os.nice(settings.PROCESS_PRIORITY_NICE_VALUE)
+        os.nice(settings.PROCESS_HIGHPRIORITY_NICE_VALUE)
 
         # IMPORTANT: Load SPI drivers in kernel
-        # FIXME: Driver names may be incorrect
-        modprobe_returncode = subprocess.run(['/sbin/modprobe', '-a', 'spi_bcm2835', 'spidev']).returncode
-        if modprobe_returncode != 0:
-            raise Exception("Couldn't load SPI drivers as 'modprobe' returned: {}".format(modprobe_returncode))
+        modload_returncode = subprocess.run(['/sbin/modprobe', '-a', 'spi-bcm2835', 'spidev']).returncode
+        if modload_returncode != 0:
+            raise Exception("Couldn't load SPI drivers as 'modprobe' returned: {}".format(modload_returncode))
+
+        # Create a mutex to lock access to data
+        data_lock = Lock()
+
+        # Load a default data of all white with half brightness
+        data = \
+        {
+            'interval_ms': 500,
+            'data': [[0x7F]*(TOTAL_LEDMATRIX_ROWS * TOTAL_LEDMATRIX_COLS)]
+        }
 
         # Read data to draw from host's COM port
-        data_thread = Thread(target=threadReadDataFromHostCOM,
-                             args=(logger, settings.COM_PORT_TOWARDS_HOST),
-                             name=threadReadDataFromHostCOM.__name__,
+        data_thread = Thread(target=threadReadDataFromHostCOMForever,
+                             args=(logger, settings.COM_PORT_TOWARDS_HOST, data_lock, data),
+                             name=threadReadDataFromHostCOMForever.__name__,
                              daemon=True)
         data_thread.start()
         if not data_thread.is_alive():
-            raise Exception("'{}()' daemon thread failed to start.".format(threadReadDataFromHostCOM.__name__))
+            raise Exception("'{}()' daemon thread failed to start.".format(threadReadDataFromHostCOMForever.__name__))
 
-        # Read data to show from host COM port
-        drawLEDData(logger)
+        # Read data to show from host COM port, forever
+        drawLEDDataForever(logger, data_lock, data)
 
     except KeyboardInterrupt:
-        pass
+        exit(0)
 
     except Exception as ex:
         logger.error("Unhandled exception caught in main(): {}".format(ex))
+        exit(-1)

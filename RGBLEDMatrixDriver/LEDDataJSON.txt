@@ -1,0 +1,10 @@
+{
+	"type": "text",
+	"data": "CPU:\n98C"
+}
+
+{
+	"type": "frames",
+	"interval_ms": 20,
+	"data": [[90, 88, ...], [66, 55, ...]]
+}
