@@ -2,7 +2,7 @@ import os
 import subprocess
 import logging
 from logging.handlers import RotatingFileHandler
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 import json
 
 import settings
@@ -27,19 +27,27 @@ if __name__ == '__main__':
         if modload_returncode != 0:
             raise Exception("Couldn't load SPI drivers as 'modprobe' returned: {}".format(modload_returncode))
 
-        # Create a mutex to lock access to data
-        data_lock = Lock()
+        # Create a mutex to lock access to data and an event object to notify it has changed
+        frames_data_lock = Lock()
+        frames_data_changed_event = Event()
 
-        # Load a default data of all white with half brightness
-        data = \
+        # Load a default data of all white
+        TOTAL_PRIMARY_COLORS = 3    # Red, Green and Blue
+        ROW_ALL_LED_ON_BYTE = 0xFF
+        frames_data = \
         {
             'interval_ms': 500,
-            'data': [[0x7F]*(TOTAL_LEDMATRIX_ROWS * TOTAL_LEDMATRIX_COLS)]
+            'data': [[ROW_ALL_LED_ON_BYTE]*(TOTAL_PRIMARY_COLORS * settings.TOTAL_LEDMATRIX_ROWS)]
         }
+        frames_data_changed_event.set()    # CAUTION: Don't forget to set this
 
         # Read data to draw from host's COM port
         data_thread = Thread(target=threadReadDataFromHostCOMForever,
-                             args=(logger, settings.COM_PORT_TOWARDS_HOST, data_lock, data),
+                             args=(logger, \
+                                   settings.COM_PORT_TOWARDS_HOST, \
+                                   frames_data_changed_event, \
+                                   frames_data_lock, \
+                                   frames_data),
                              name=threadReadDataFromHostCOMForever.__name__,
                              daemon=True)
         data_thread.start()
@@ -47,7 +55,7 @@ if __name__ == '__main__':
             raise Exception("'{}()' daemon thread failed to start.".format(threadReadDataFromHostCOMForever.__name__))
 
         # Read data to show from host COM port, forever
-        drawLEDDataForever(logger, data_lock, data)
+        drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, frames_data)
 
     except KeyboardInterrupt:
         exit(0)
