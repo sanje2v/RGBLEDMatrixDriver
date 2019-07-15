@@ -2,7 +2,7 @@ from serial import Serial
 
 
 # NOTE: Will run in separate daemon thread
-def threadReadDataFromHostCOMForever(logger, port, data_changed_event, data_lock, data):
+def threadReadDataFromHostCOMForever(logger, frames_data_changed_event, frames_data_lock, frames_data):
     try:
         with Serial(**settings.HOST_COM_PORT_CONFIG) as ser:
             while(True):
@@ -11,9 +11,10 @@ def threadReadDataFromHostCOMForever(logger, port, data_changed_event, data_lock
                     data_dict = json.loads(data_bytes.decode('utf-8'))
                     assertJSONDataIsValid(data_dict)
 
-                    with data_lock:
-                        data[:] = data_dict    # CAUTION: Make sure to use '[:]' to modify original dictionary and not reference
-                        data_changed_event.set()
+                    with frames_data_lock:
+                        # CAUTION: Make sure to use '[:]' to modify original dictionary and not reference
+                        frames_data[:] = data_dict
+                        frames_data_changed_event.set()
 
                 except Exception as ex:
                     logger.error("Continuing with exception occured in '{}()' COM read loop: {}"\

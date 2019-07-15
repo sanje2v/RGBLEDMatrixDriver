@@ -33,26 +33,27 @@ if __name__ == '__main__':
         frames_data_changed_event = Event()
 
         # Load a default data of all white
-        ROW_ALL_LED_ON_BYTE = 0xFF  # Turn all LEDs white
+        ROW_ALL_LED_ON_BYTE = 0xFF  # Turn all LEDs white on a row
         frames_data = \
         {
-            'interval_ms': 500,
+            'interval_ms': settings.JSON_DATA_FRAME_INTERVAL_MAX,
             'data': [[ROW_ALL_LED_ON_BYTE]*(TOTAL_PRIMARY_COLORS * settings.TOTAL_LEDMATRIX_ROWS)]
         }
-        frames_data_changed_event.set()    # CAUTION: Don't forget to set this as we have just changed 'frames_data'
+        # CAUTION: Don't forget to set this as we have just changed 'frames_data'
+        frames_data_changed_event.set()
 
         # Read data to draw from host's COM port
         data_thread = Thread(target=threadReadDataFromHostCOMForever,
-                             args=(logger, \
-                                   settings.COM_PORT_TOWARDS_HOST, \
-                                   frames_data_changed_event, \
-                                   frames_data_lock, \
+                             args=(logger,\
+                                   frames_data_changed_event,\
+                                   frames_data_lock,\
                                    frames_data),
                              name=threadReadDataFromHostCOMForever.__name__,
                              daemon=True)
         data_thread.start()
         if not data_thread.is_alive():
-            raise Exception("'{}()' daemon thread failed to start.".format(threadReadDataFromHostCOMForever.__name__))
+            raise Exception("'{}()' daemon thread failed to start."\
+                .format(threadReadDataFromHostCOMForever.__name__))
 
         # Read data to show from host COM port, forever
         drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, frames_data)

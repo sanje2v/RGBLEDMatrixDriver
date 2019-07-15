@@ -11,13 +11,12 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
     spi = None
     try:
         # NOTE: Make sure pins are in BCM
-        GPIO.setmode(GPIO.BCM)
+        GPIO.setmode(settings.SPI_SLAVE_SELECT_PIN_MODE)
 
         # Make all the manually chosen Slave Select (SS) pins to OUTPUT mode
         # and also set them to HIGH (used to deselect slave in SPI)
-        for i, pin_no in enumerate(settings.SLAVE_SELECT_PIN_NOS):
-            GPIO.setup(pin_no, GPIO.OUT)
-            GPIO.output(pin_no, GPIO.HIGH)  # HIGH to deselect
+        GPIO.setup(settings.SLAVE_SELECT_PIN_NOS, GPIO.OUT)
+        GPIO.output(settings.SLAVE_SELECT_PIN_NOS, GPIO.HIGH)  # HIGH to deselect
 
         spi = SpiDev()
         spi.open(settings.SPI_BUS, 0)  # NOTE: We are manually controlling SS pins so we just use 0 for device

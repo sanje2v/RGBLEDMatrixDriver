@@ -16,6 +16,8 @@ HOST_COM_PORT_CONFIG = \
 # SPI Port settings
 SPI_BUS = 0
 MAX_SPI_SPEED_HZ = 500000   # 500 KHz
+import RPi.GPIO as GPIO
+SPI_SLAVE_SELECT_PIN_MODE = GPIO.BCM
 # CAUTION: Slave Select pins below should be pins other than traditional CS0/1 pins
 SLAVE_SELECT_PIN_NOS = [10, 11, 12, 13] # Needs to be in order of slaves
 NUM_SLAVES = len(SLAVE_SELECT_PIN_NOS)  # aka, Number of matrix modules
@@ -24,7 +26,7 @@ NUM_SLAVES = len(SLAVE_SELECT_PIN_NOS)  # aka, Number of matrix modules
 JSON_DATA_TERMINATOR = '\0'
 JSON_DATA_FRAME_INTERVAL_MS_KEY = 'interval_ms'
 JSON_DATA_KEY = 'data'
-JSON_DATA_FRAME_INTERVAL_MAX = 10
+JSON_DATA_FRAME_INTERVAL_MAX = 5000
 
 # LED Matrix settings
 TOTAL_LEDMATRIX_ROWS = 32
