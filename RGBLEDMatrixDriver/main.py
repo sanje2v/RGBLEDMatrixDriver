@@ -6,6 +6,7 @@ from threading import Thread, Lock, Event
 import json
 
 import settings
+from utils import *
 from host_funcs import threadReadDataFromHostCOMForever
 from led_funcs import drawLEDDataForever
 
@@ -32,14 +33,13 @@ if __name__ == '__main__':
         frames_data_changed_event = Event()
 
         # Load a default data of all white
-        TOTAL_PRIMARY_COLORS = 3    # Red, Green and Blue
-        ROW_ALL_LED_ON_BYTE = 0xFF
+        ROW_ALL_LED_ON_BYTE = 0xFF  # Turn all LEDs white
         frames_data = \
         {
             'interval_ms': 500,
             'data': [[ROW_ALL_LED_ON_BYTE]*(TOTAL_PRIMARY_COLORS * settings.TOTAL_LEDMATRIX_ROWS)]
         }
-        frames_data_changed_event.set()    # CAUTION: Don't forget to set this
+        frames_data_changed_event.set()    # CAUTION: Don't forget to set this as we have just changed 'frames_data'
 
         # Read data to draw from host's COM port
         data_thread = Thread(target=threadReadDataFromHostCOMForever,

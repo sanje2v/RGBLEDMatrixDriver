@@ -1,3 +1,5 @@
+TOTAL_PRIMARY_COLORS = 3    # Red, Green and Blue
+
 # REF: https://chrisalbon.com/python/data_wrangling/break_list_into_chunks_of_equal_size/
 def chunks(l, n):
     # For item i in a range that is a length of l,
