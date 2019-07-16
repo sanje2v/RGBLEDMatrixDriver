@@ -1,3 +1,4 @@
+import sys
 import time
 from copy import copy
 import RPi.GPIO as GPIO
@@ -10,7 +11,7 @@ from utils import *
 def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, frames_data):
     spi = None
     try:
-        # NOTE: Make sure pins are in BCM
+        # NOTE: Pin numbers are dependent on the mode set below
         GPIO.setmode(settings.SPI_SLAVE_SELECT_PIN_MODE)
 
         # Make all the manually chosen Slave Select (SS) pins to OUTPUT mode
@@ -23,17 +24,19 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
         spi.max_speed_hz = settings.MAX_SPI_SPEED_HZ
         spi.no_cs = True    # NOTE: We manually control Slave Select (SS) pins
 
-        # Update with provided frames data
-        frame_id, interval_secs, data_type, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
-                                                                                           frames_data_lock,
-                                                                                           frames_data)
-        assert rgbp_frames_data is not None, "BUG: 'frames_data_changed_event' was not set in main.py for first default frame data."
-
         while(True):    # Do this forever
-            while(frame_id < len(rgbp_frames_data)):
+            # Update with provided frames data
+            frame_id, interval_secs, data_type, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
+                                                                                               frames_data_lock,
+                                                                                               frames_data)
+
+            max_frame_id = (len(rgbp_frames_data) if data_type == settings.JSON_DATA_TYPE_FRAMES else sys.maxsize)
+            while(frame_id < max_frame_id):
                 # Send data to each slave
-                for slave_id, rgbp_frame_data in enumerate(chunks(rgbp_frames_data[frame_id], settings.NUM_SLAVES)):
+                rgbp_frames_data_index = (frame_id if data_type == settings.JSON_DATA_TYPE_FRAMES else 0)
+                for slave_id, rgbp_frame_data in enumerate(chunks(rgbp_frames_data[rgbp_frames_data_index], settings.NUM_SLAVES)):
                     selectSPISlave(slave_id)    # Select specific slave to make it listen
+                    spinWait(times=4)
 
                     # Send data row by row
                     for col_rgbp_data in chunk(rgbp_frame_data, settings.NUM_ROWS_IN_ONE_SLAVE):
@@ -55,9 +58,6 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
                                                                                                    data_type,
                                                                                                    rgbp_frames_data)
 
-            # Start from first frame again
-            frame_id = 0
-
     except Exception as ex:
         raise Exception("Exception occured in '{}()': {}".format(drawLEDDataForever.__name__, ex))
 
@@ -78,7 +78,7 @@ def deselectSPISlave(id):
 def checkAndUpdateNewFramesData(frames_data_changed_event,
                                 frames_data_lock,
                                 frames_data,
-                                prev_frame_id=None,
+                                prev_frame_id=-1,
                                 prev_interval_secs=None,
                                 prev_data_type=None,
                                 prev_rgbp_frames_data=None):
@@ -89,31 +89,29 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
         with frames_data_lock:
             frames_data_changed_event.clear()
 
-            # Convert to seconds (float)
-            interval_secs = max(frames_data[settings.JSON_DATA_FRAME_INTERVAL_MS_KEY] / 1000.0,
-                                settings.JSON_DATA_FRAME_INTERVAL_MAX)
-            
-            data_type = frames_data[settings.JSON_DATA_TYPE_KEY]
-            
-            # For each frame, calculate proper format required by hardware
-            if data_type == settings.JSON_DATA_TYPE_FRAMES:
+            # NOTE: Make sure interval given is within range and do convert to seconds (float)
+            interval_secs = toSecs(max(frames_data[settings.JSON_DATA_FRAME_INTERVAL_MS_KEY],
+                                       settings.JSON_DATA_FRAME_INTERVAL_MS_MAX))
+
+            if frames_data[settings.JSON_DATA_TYPE_KEY] == settings.JSON_DATA_TYPE_FRAMES:
                 # Convert RGB to proper format for hardware
                 rgb_frames_data = frames_data[settings.JSON_DATA_KEY]
                 rgbp_frames_data = formatRGBFramesDataForEP0075Matrix(rgb_frames_data)
 
-                return (0, interval_secs, data_type, rgbp_frames_data) # NOTE: '0' to start from beginning frame index 0
+                # NOTE: '0' to start from beginning frame index 0
+                return (0, interval_secs, settings.JSON_DATA_TYPE_FRAMES, rgbp_frames_data)
 
-    if data_type == settings.JSON_DATA_TYPE_PROGRAM:
+    if frames_data[settings.JSON_DATA_TYPE_KEY] == settings.JSON_DATA_TYPE_PROGRAM:
         # NOTE: The following program has access to 'rgb_frame_data' variable and is expected to populate it
         program = frames_data[settings.JSON_DATA_KEY]
         rgb_frame_data = []
         exec(program)
         rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
 
-        return (0, interval_secs, rgbp_frames_data) # NOTE: '0' to start from beginning frame index 0
-        
+        # NOTE: For '0' to start from beginning frame index 0
+        return (0, interval_secs, settings.JSON_DATA_TYPE_PROGRAM, rgbp_frames_data)
 
-    return (prev_frame_id, prev_interval_secs, prev_rgbp_frames_data)
+    return (prev_frame_id+1, prev_interval_secs, prev_data_type, prev_rgbp_frames_data)
 
 
 def formatRGBFramesDataForEP0075Matrix(rgb_frames_data):
@@ -123,8 +121,8 @@ def formatRGBFramesDataForEP0075Matrix(rgb_frames_data):
     for rgb_frame_data in rgb_frames_data:
         rgbp_frame_data = []
         for slave_rgb_frame_data in chunks(rgb_frame_data, settings.NUM_SLAVES):
-            for row, (r, g, b) in enumerate(zip(slave_rgb_frame_data[0::TOTAL_PRIMARY_COLORS], \
-                                                slave_rgb_frame_data[1::TOTAL_PRIMARY_COLORS], \
+            for row, (r, g, b) in enumerate(zip(slave_rgb_frame_data[0::TOTAL_PRIMARY_COLORS],\
+                                                slave_rgb_frame_data[1::TOTAL_PRIMARY_COLORS],\
                                                 slave_rgb_frame_data[2::TOTAL_PRIMARY_COLORS])):
                 rgbp_frame_data.extend((~r, ~g, ~b, (0x1 << row))) # NOTE: EP0075 wants RGB data inverted
 

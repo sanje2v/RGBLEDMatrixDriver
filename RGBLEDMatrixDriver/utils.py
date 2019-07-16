@@ -12,3 +12,12 @@ def spinWait(times):
     i = 0
     while(i < times):
         i += 1
+
+
+def assignDict(src_dict, dest_dict):
+    for key in dest_dict.keys():
+        dest_dict[key] = src_dict[key]
+
+
+def toSecs(msecs):
+    return msecs / 1000.0

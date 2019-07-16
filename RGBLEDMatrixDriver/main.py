@@ -34,9 +34,10 @@ if __name__ == '__main__':
 
         # Load a default data of all white
         ROW_ALL_LED_ON_BYTE = 0xFF  # Turn all LEDs white on a row
-        frames_data = \
+        frames_data =\
         {
-            settings.JSON_DATA_FRAME_INTERVAL_MS_KEY: settings.JSON_DATA_FRAME_INTERVAL_MAX,
+            settings.JSON_DATA_FRAME_INTERVAL_MS_KEY: settings.JSON_DATA_FRAME_INTERVAL_MS_MAX,
+            settings.JSON_DATA_TYPE_KEY: settings.JSON_DATA_TYPE_FRAMES,
             settings.JSON_DATA_KEY: [[ROW_ALL_LED_ON_BYTE]*(TOTAL_PRIMARY_COLORS * settings.TOTAL_LEDMATRIX_ROWS)]
         }
         # CAUTION: Don't forget to set this as we have just changed 'frames_data'

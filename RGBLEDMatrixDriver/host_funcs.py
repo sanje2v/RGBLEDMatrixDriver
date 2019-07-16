@@ -1,6 +1,8 @@
 from serial import Serial
 import json
 
+from utils import *
+
 
 # NOTE: Will run in separate daemon thread
 def threadReadDataFromHostCOMForever(logger, frames_data_changed_event, frames_data_lock, frames_data):
@@ -8,24 +10,25 @@ def threadReadDataFromHostCOMForever(logger, frames_data_changed_event, frames_d
         with Serial(**settings.HOST_COM_PORT_CONFIG) as ser:
             while(True):
                 try:
-                    data_bytes = ser.read_until(settings.JSON_DATA_TERMINATOR)[:-1] # CAUTION: Do remove terminating character
+                    # CAUTION: Make sure to remove terminating character using '[:-1]'
+                    data_bytes = ser.read_until(settings.JSON_DATA_TERMINATOR)[:-1]
                     data_dict = json.loads(data_bytes.decode('utf-8'))
                     assertJSONDataIsValid(data_dict)
                     respondToHost(ser, 'OK')    # Data from host was in correct format, so notify host
 
                     with frames_data_lock:
-                        # CAUTION: Make sure to use '[:]' to modify original dictionary and not reference
-                        frames_data[:] = data_dict
+                        # CAUTION: Make sure to use 'assignDict()' to modify original dictionary and not reference
+                        assignDict(src_dict=data_dict, dest_dict=frames_data)
                         frames_data_changed_event.set()
 
                 except Exception as ex:
                     error_message = "Continuing with exception occured in '{}()' COM read loop: {}"\
                         .format(threadReadDataFromHostCOMForever.__name__, ex)
                     logger.error(error_message)
-                    respondToHost(ser, error_message)   # Also tell the host about the error in their data
+                    respondToHost(ser, error_message)   # Tell the host about the error in their data
 
     except Exception as ex:
-        raise Exception("Exception occured in '{}()': {}".format(threadReadDataFromHostCOMForever.__name__, ex))
+        raise Exception("Exception occurred in '{}()': {}".format(threadReadDataFromHostCOMForever.__name__, ex))
 
 
 def assertJSONDataIsValid(data_dict):
@@ -63,6 +66,11 @@ def assertJSONDataIsValid(data_dict):
 
 
 def respondToHost(ser, message):
-    json_data = json.dumps({settings.JSON_DATA_TYPE_KEY: settings.JSON_DATA_TYPE_RESPONSE, settings.JSON_DATA_KEY: message}) + \
+    dict_data =\
+    {
+        settings.JSON_DATA_TYPE_KEY: settings.JSON_DATA_TYPE_RESPONSE,
+        settings.JSON_DATA_KEY: message
+    }
+    json_data = json.dumps(dict_data) + \
                 settings.JSON_DATA_TERMINATOR
     ser.write(json_data.encode('utf-8'))
