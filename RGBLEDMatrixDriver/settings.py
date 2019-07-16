@@ -10,7 +10,8 @@ HOST_COM_PORT_CONFIG = \
     bytesize: serial.EIGHTBITS,
     parity: serial.PARITY_NONE,
     stopbits: serial.STOPBITS_ONE,
-    timeout: None    # Read timeout in secs or None for never timeout
+    timeout: None,      # Read timeout in secs or None for never timeout
+    write_timeout: 5.0  # In secs
 }
 
 # SPI Port settings
@@ -24,6 +25,10 @@ NUM_SLAVES = len(SLAVE_SELECT_PIN_NOS)  # aka, Number of matrix modules
 
 # JSON Data settings
 JSON_DATA_TERMINATOR = '\0'
+JSON_DATA_TYPE_KEY = 'type'
+JSON_DATA_TYPE_RESPONSE = 'response'
+JSON_DATA_TYPE_FRAMES = 'frames'
+JSON_DATA_TYPE_PROGRAM = 'program'
 JSON_DATA_FRAME_INTERVAL_MS_KEY = 'interval_ms'
 JSON_DATA_KEY = 'data'
 JSON_DATA_FRAME_INTERVAL_MAX = 5000

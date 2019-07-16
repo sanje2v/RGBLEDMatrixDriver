@@ -24,9 +24,9 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
         spi.no_cs = True    # NOTE: We manually control Slave Select (SS) pins
 
         # Update with provided frames data
-        frame_id, interval_secs, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
-                                                                                frames_data_lock,
-                                                                                frames_data)
+        frame_id, interval_secs, data_type, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
+                                                                                           frames_data_lock,
+                                                                                           frames_data)
         assert rgbp_frames_data is not None, "BUG: 'frames_data_changed_event' was not set in main.py for first default frame data."
 
         while(True):    # Do this forever
@@ -43,17 +43,17 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
                     deselectSPISlave(slave_id)  # Deselect the slave to begin displaying data
 
                 # Wait until next frame update
-                frame_id += 1
                 time.sleep(interval_secs)
 
                 # After completing a frame draw, check if new frames data has arrived
                 # and if so, save it and start again from frame index 0
-                frame_id, interval_secs, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
-                                                                                        frames_data_lock,
-                                                                                        frames_data,
-                                                                                        frame_id,
-                                                                                        interval_secs,
-                                                                                        rgbp_frames_data)
+                frame_id, interval_secs, data_type, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
+                                                                                                   frames_data_lock,
+                                                                                                   frames_data,
+                                                                                                   frame_id,
+                                                                                                   interval_secs,
+                                                                                                   data_type,
+                                                                                                   rgbp_frames_data)
 
             # Start from first frame again
             frame_id = 0
@@ -80,7 +80,9 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
                                 frames_data,
                                 prev_frame_id=None,
                                 prev_interval_secs=None,
+                                prev_data_type=None,
                                 prev_rgbp_frames_data=None):
+
     # Check if there is new RGB frames data
     # NOTE: We use a mutex so that we don't half updated screens ever
     if frames_data_changed_event.is_set():
@@ -90,12 +92,26 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
             # Convert to seconds (float)
             interval_secs = max(frames_data[settings.JSON_DATA_FRAME_INTERVAL_MS_KEY] / 1000.0,
                                 settings.JSON_DATA_FRAME_INTERVAL_MAX)
-            # For each frame
-            for frame_data in frames_data:
-                # Read data dictionary into local variables
-                rgbp_frames_data = formatRGBFramesDataForEP0075Matrix(frames_data[settings.JSON_DATA_KEY])
+            
+            data_type = frames_data[settings.JSON_DATA_TYPE_KEY]
+            
+            # For each frame, calculate proper format required by hardware
+            if data_type == settings.JSON_DATA_TYPE_FRAMES:
+                # Convert RGB to proper format for hardware
+                rgb_frames_data = frames_data[settings.JSON_DATA_KEY]
+                rgbp_frames_data = formatRGBFramesDataForEP0075Matrix(rgb_frames_data)
+
+                return (0, interval_secs, data_type, rgbp_frames_data) # NOTE: '0' to start from beginning frame index 0
+
+    if data_type == settings.JSON_DATA_TYPE_PROGRAM:
+        # NOTE: The following program has access to 'rgb_frame_data' variable and is expected to populate it
+        program = frames_data[settings.JSON_DATA_KEY]
+        rgb_frame_data = []
+        exec(program)
+        rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
 
         return (0, interval_secs, rgbp_frames_data) # NOTE: '0' to start from beginning frame index 0
+        
 
     return (prev_frame_id, prev_interval_secs, prev_rgbp_frames_data)
 
