@@ -26,11 +26,10 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
 
         while(True):    # Do this forever
             # Update with provided frames data
-            frame_id, interval_secs, data_type, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
-                                                                                               frames_data_lock,
-                                                                                               frames_data)
-
-            max_frame_id = (len(rgbp_frames_data) if data_type == settings.JSON_DATA_TYPE_FRAMES else sys.maxsize)
+            frame_id, max_frame_id, interval_secs, data_type, rgbp_frames_data =\
+                checkAndUpdateNewFramesData(frames_data_changed_event,
+                                            frames_data_lock,
+                                            frames_data)
             while(frame_id < max_frame_id):
                 # Send data to each slave
                 rgbp_frames_data_index = (frame_id if data_type == settings.JSON_DATA_TYPE_FRAMES else 0)
@@ -50,13 +49,15 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
 
                 # After completing a frame draw, check if new frames data has arrived
                 # and if so, save it and start again from frame index 0
-                frame_id, interval_secs, data_type, rgbp_frames_data = checkAndUpdateNewFramesData(frames_data_changed_event,
-                                                                                                   frames_data_lock,
-                                                                                                   frames_data,
-                                                                                                   frame_id,
-                                                                                                   interval_secs,
-                                                                                                   data_type,
-                                                                                                   rgbp_frames_data)
+                frame_id, max_frame_id, interval_secs, data_type, rgbp_frames_data =\
+                    checkAndUpdateNewFramesData(frames_data_changed_event,
+                                                frames_data_lock,
+                                                frames_data,
+                                                frame_id,
+                                                max_frame_id,
+                                                interval_secs,
+                                                data_type,
+                                                rgbp_frames_data)
 
     except Exception as ex:
         raise Exception("Exception occured in '{}()': {}".format(drawLEDDataForever.__name__, ex))
@@ -78,7 +79,8 @@ def deselectSPISlave(id):
 def checkAndUpdateNewFramesData(frames_data_changed_event,
                                 frames_data_lock,
                                 frames_data,
-                                prev_frame_id=-1,
+                                prev_frame_id=-1,       # CAUTION: Needs to be '-1' and not 'None'
+                                prev_max_frame_id=None,
                                 prev_interval_secs=None,
                                 prev_data_type=None,
                                 prev_rgbp_frames_data=None):
@@ -99,19 +101,24 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
                 rgbp_frames_data = formatRGBFramesDataForEP0075Matrix(rgb_frames_data)
 
                 # NOTE: '0' to start from beginning frame index 0
-                return (0, interval_secs, settings.JSON_DATA_TYPE_FRAMES, rgbp_frames_data)
+                return (0, len(rgbp_frames_data), interval_secs, settings.JSON_DATA_TYPE_FRAMES, rgbp_frames_data)
+            else:
+                prev_frame_id = -1
 
     if frames_data[settings.JSON_DATA_TYPE_KEY] == settings.JSON_DATA_TYPE_PROGRAM:
         # NOTE: The following program has access to 'rgb_frame_data' variable and is expected to populate it
         program = frames_data[settings.JSON_DATA_KEY]
         rgb_frame_data = []
-        exec(program)
+        frame_id = prev_frame_id + 1
+        # Execute the host given program to calculate next frame
+        # NOTE: We restrict access to global and local variables for simple sandboxing.
+        exec(program, globals=None, locals={'frame_id': frame_id, 'rgb_frame_data': rgb_frame_data})
         rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
 
         # NOTE: For '0' to start from beginning frame index 0
-        return (0, interval_secs, settings.JSON_DATA_TYPE_PROGRAM, rgbp_frames_data)
+        return (frame_id, prev_max_frame_id, sys.maxsize, interval_secs, settings.JSON_DATA_TYPE_PROGRAM, rgbp_frames_data)
 
-    return (prev_frame_id+1, prev_interval_secs, prev_data_type, prev_rgbp_frames_data)
+    return ((prev_frame_id + 1), prev_max_frame_id, prev_interval_secs, prev_data_type, prev_rgbp_frames_data)
 
 
 def formatRGBFramesDataForEP0075Matrix(rgb_frames_data):
