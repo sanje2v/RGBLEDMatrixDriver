@@ -16,12 +16,13 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
 
         # Make all the manually chosen Slave Select (SS) pins to OUTPUT mode
         # and also set them to HIGH (used to deselect slave in SPI)
+        # NOTE: In the following functions, we pass a whole list of pins.
         GPIO.setup(settings.SLAVE_SELECT_PIN_NOS, GPIO.OUT)
         GPIO.output(settings.SLAVE_SELECT_PIN_NOS, GPIO.HIGH)  # HIGH to deselect
 
         spi = SpiDev()
         spi.open(settings.SPI_BUS, 0)  # NOTE: We are manually controlling SS pins so we just use 0 for device
-        spi.max_speed_hz = settings.MAX_SPI_SPEED_HZ
+        spi.max_speed_hz = settings.SPI_SPEED_HZ
         spi.no_cs = True    # NOTE: We manually control Slave Select (SS) pins
 
         while(True):    # Do this forever
@@ -33,14 +34,15 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
             while(frame_id < max_frame_id):
                 # Send data to each slave
                 rgbp_frames_data_index = (frame_id if data_type == settings.JSON_DATA_TYPE_FRAMES else 0)
-                for slave_id, rgbp_frame_data in enumerate(chunks(rgbp_frames_data[rgbp_frames_data_index], settings.NUM_SLAVES)):
+                for slave_id, rgbp_frame_data in enumerate(chunks(rgbp_frames_data[rgbp_frames_data_index],\
+                                                                  settings.NUM_SLAVES)):
                     selectSPISlave(slave_id)    # Select specific slave to make it listen
-                    spinWait(times=4)
+                    spinWait(times=(settings.SPI_ONE_CLOCK_WAIT_SPIN_TIMES * 2))    # Wait two SPI clock cycles
 
                     # Send data row by row
                     for col_rgbp_data in chunk(rgbp_frame_data, settings.NUM_ROWS_IN_ONE_SLAVE):
                         spi.writebytes2(col_rgbp_data)
-                        spinWait(times=4)
+                        spinWait(times=(settings.SPI_ONE_CLOCK_WAIT_SPIN_TIMES * 2))    # Wait two SPI clock cycles
 
                     deselectSPISlave(slave_id)  # Deselect the slave to begin displaying data
 
@@ -84,6 +86,7 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
                                 prev_interval_secs=None,
                                 prev_data_type=None,
                                 prev_rgbp_frames_data=None):
+    global program_state    # May be used to store program's state between executions
 
     # Check if there is new RGB frames data
     # NOTE: We use a mutex so that we don't half updated screens ever
@@ -101,24 +104,42 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
                 rgbp_frames_data = formatRGBFramesDataForEP0075Matrix(rgb_frames_data)
 
                 # NOTE: '0' to start from beginning frame index 0
-                return (0, len(rgbp_frames_data), interval_secs, settings.JSON_DATA_TYPE_FRAMES, rgbp_frames_data)
+                return (0,
+                        len(rgbp_frames_data),
+                        interval_secs,
+                        settings.JSON_DATA_TYPE_FRAMES,
+                        rgbp_frames_data)
             else:
+                # New frames data generating program was provided
+                # so clear state data from previous program
                 prev_frame_id = -1
+                program_state = {}
 
     if frames_data[settings.JSON_DATA_TYPE_KEY] == settings.JSON_DATA_TYPE_PROGRAM:
-        # NOTE: The following program has access to 'rgb_frame_data' variable and is expected to populate it
+        # NOTE: The following program has access to 'rgb_frame_data' variable
+        # and is expected to populate it
         program = frames_data[settings.JSON_DATA_KEY]
         rgb_frame_data = []
         frame_id = prev_frame_id + 1
         # Execute the host given program to calculate next frame
         # NOTE: We restrict access to global and local variables for simple sandboxing.
-        exec(program, globals=None, locals={'frame_id': frame_id, 'rgb_frame_data': rgb_frame_data})
+        exec(program,
+             {'state': program_state},                                  # Globals
+             {'frame_id': frame_id, 'rgb_frame_data': rgb_frame_data})  # Locals
         rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
 
         # NOTE: For '0' to start from beginning frame index 0
-        return (frame_id, prev_max_frame_id, sys.maxsize, interval_secs, settings.JSON_DATA_TYPE_PROGRAM, rgbp_frames_data)
+        return (frame_id,
+                prev_max_frame_id,
+                sys.maxsize, interval_secs,
+                settings.JSON_DATA_TYPE_PROGRAM,
+                rgbp_frames_data)
 
-    return ((prev_frame_id + 1), prev_max_frame_id, prev_interval_secs, prev_data_type, prev_rgbp_frames_data)
+    return ((prev_frame_id + 1),
+            prev_max_frame_id,
+            prev_interval_secs,
+            prev_data_type,
+            prev_rgbp_frames_data)
 
 
 def formatRGBFramesDataForEP0075Matrix(rgb_frames_data):
