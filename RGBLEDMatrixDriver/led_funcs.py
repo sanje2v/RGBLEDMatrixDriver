@@ -123,7 +123,7 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
         frame_id = prev_frame_id + 1
         # Execute the host given program to calculate next frame
         # NOTE: We restrict access to global and local variables for simple sandboxing.
-        exec(program,
+        exec(program,                                                   # Python program as string
              {'state': program_state},                                  # Globals
              {'frame_id': frame_id, 'rgb_frame_data': rgb_frame_data})  # Locals
         rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
@@ -131,7 +131,8 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
         # NOTE: For '0' to start from beginning frame index 0
         return (frame_id,
                 prev_max_frame_id,
-                sys.maxsize, interval_secs,
+                sys.maxsize,
+                interval_secs,
                 settings.JSON_DATA_TYPE_PROGRAM,
                 rgbp_frames_data)
 

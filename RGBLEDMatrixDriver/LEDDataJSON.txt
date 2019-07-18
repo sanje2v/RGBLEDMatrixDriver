@@ -1,10 +1,5 @@
 {
-	"type": "text",
-	"data": "CPU:\n98C"
-}
-
-{
-	"type": "frames",
+	"type": "frames/program",
 	"interval_ms": 20,
-	"data": [[90, 88, ...], [66, 55, ...]]
+	"data": [[90, 88, ...], [66, 55, ...]]	# RGB 3-tuple for each frame in a list
 }
