@@ -5,13 +5,13 @@ PROCESS_HIGHPRIORITY_NICE_VALUE = -10
 import serial
 HOST_COM_PORT_CONFIG = \
 {
-    port: '/dev/ttyAMA0',   # COM port 1
-    baudrate: 9600,
-    bytesize: serial.EIGHTBITS,
-    parity: serial.PARITY_NONE,
-    stopbits: serial.STOPBITS_ONE,
-    timeout: None,      # Read timeout in secs or None for never timeout
-    write_timeout: 5.0  # In secs
+    'port': '/dev/ttyAMA0',   # COM port 1
+    'baudrate': 9600,
+    'bytesize': serial.EIGHTBITS,
+    'parity': serial.PARITY_NONE,
+    'stopbits': serial.STOPBITS_ONE,
+    'timeout': None,      # Read timeout in secs or None for never timeout
+    'write_timeout': 5.0  # In secs
 }
 
 # SPI Port settings

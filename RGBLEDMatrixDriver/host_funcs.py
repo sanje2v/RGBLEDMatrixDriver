@@ -1,6 +1,8 @@
+import traceback
 from serial import Serial
 import json
 
+import settings
 from utils import *
 
 
@@ -28,7 +30,7 @@ def threadReadDataFromHostCOMForever(logger, frames_data_changed_event, frames_d
                     respondToHost(ser, error_message)   # Tell the host about the error in their data
 
     except Exception as ex:
-        raise Exception("Exception occurred in '{}()': {}".format(threadReadDataFromHostCOMForever.__name__, ex))
+        raise Exception("Exception occurred in '{}()': {}".format(threadReadDataFromHostCOMForever.__name__, traceback.format_exc()))
 
 
 def assertJSONDataIsValid(data_dict):

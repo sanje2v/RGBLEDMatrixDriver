@@ -1,9 +1,11 @@
 import sys
 import time
+import traceback
 from copy import copy
 import RPi.GPIO as GPIO
 from spidev import SpiDev   # WARNING: Only available for Linux
 
+import settings
 from utils import *
 
 
@@ -23,7 +25,11 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
         spi = SpiDev()
         spi.open(settings.SPI_BUS, 0)  # NOTE: We are manually controlling SS pins so we just use 0 for device
         spi.max_speed_hz = settings.SPI_SPEED_HZ
-        spi.no_cs = True    # NOTE: We manually control Slave Select (SS) pins
+        # NOTE: The following is only available in newer versions of 'spidev' library
+        try:
+            spi.no_cs = True    # NOTE: We manually control Slave Select (SS) pins
+        except:
+            pass
 
         while(True):    # Do this forever
             # Update with provided frames data
@@ -40,8 +46,8 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
                     spinWait(times=(settings.SPI_ONE_CLOCK_WAIT_SPIN_TIMES * 2))    # Wait two SPI clock cycles
 
                     # Send data row by row
-                    for col_rgbp_data in chunk(rgbp_frame_data, settings.NUM_ROWS_IN_ONE_SLAVE):
-                        spi.writebytes2(col_rgbp_data)
+                    for col_rgbp_data in chunks(rgbp_frame_data, settings.NUM_ROWS_IN_ONE_SLAVE):
+                        spi.xfer2(col_rgbp_data)
                         spinWait(times=(settings.SPI_ONE_CLOCK_WAIT_SPIN_TIMES * 2))    # Wait two SPI clock cycles
 
                     deselectSPISlave(slave_id)  # Deselect the slave to begin displaying data
@@ -62,7 +68,7 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
                                                 rgbp_frames_data)
 
     except Exception as ex:
-        raise Exception("Exception occured in '{}()': {}".format(drawLEDDataForever.__name__, ex))
+        raise Exception("Exception occured in '{}()': {}".format(drawLEDDataForever.__name__, traceback.format_exc()))
 
     finally:
         GPIO.cleanup()

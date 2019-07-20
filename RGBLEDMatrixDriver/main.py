@@ -1,5 +1,6 @@
 import os
 import subprocess
+import traceback
 import logging
 from logging.handlers import RotatingFileHandler
 from threading import Thread, Lock, Event
@@ -63,5 +64,5 @@ if __name__ == '__main__':
         exit(0)
 
     except Exception as ex:
-        logger.error("Unhandled exception caught in main(): {}".format(ex))
+        logger.error("Unhandled exception caught in main(): {}".format(traceback.format_exc()))
         exit(-1)
