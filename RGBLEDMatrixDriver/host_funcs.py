@@ -24,7 +24,7 @@ def threadReadDataFromHostCOMForever(logger, frames_data_changed_event, frames_d
                         frames_data_changed_event.set()
 
                 except Exception as ex:
-                    error_message = "Continuing with exception occured in '{}()' COM read loop: {}"\
+                    error_message = "Continuing with exception occurred in '{}()' COM read loop: {}"\
                         .format(threadReadDataFromHostCOMForever.__name__, ex)
                     logger.error(error_message)
                     respondToHost(ser, error_message)   # Tell the host about the error in their data
