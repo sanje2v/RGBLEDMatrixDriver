@@ -24,7 +24,7 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
 
         spi = SpiDev()
         spi.open(settings.SPI_BUS, 0)  # NOTE: We are manually controlling SS pins so we just use 0 for device
-        spi.max_speed_hz = settings.SPI_SPEED_HZ
+        spi.max_speed_hz = settings.SPI_MAX_SPEED_HZ
         # NOTE: The following is only available in newer versions of 'spidev' library
         try:
             spi.no_cs = True    # NOTE: We manually control Slave Select (SS) pins
@@ -34,7 +34,8 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
         while(True):    # Do this forever
             # Update with provided frames data
             frame_id, max_frame_id, interval_secs, data_type, rgbp_frames_data =\
-                checkAndUpdateNewFramesData(frames_data_changed_event,
+                checkAndUpdateNewFramesData(logger,
+                                            frames_data_changed_event,
                                             frames_data_lock,
                                             frames_data)
             while(frame_id < max_frame_id):
@@ -58,7 +59,8 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
                 # After completing a frame draw, check if new frames data has arrived
                 # and if so, save it and start again from frame index 0
                 frame_id, max_frame_id, interval_secs, data_type, rgbp_frames_data =\
-                    checkAndUpdateNewFramesData(frames_data_changed_event,
+                    checkAndUpdateNewFramesData(logger,
+                                                frames_data_changed_event,
                                                 frames_data_lock,
                                                 frames_data,
                                                 frame_id,
@@ -84,7 +86,8 @@ def deselectSPISlave(id):
     GPIO.output(settings.SLAVE_SELECT_PIN_NOS[id], GPIO.HIGH)
 
 
-def checkAndUpdateNewFramesData(frames_data_changed_event,
+def checkAndUpdateNewFramesData(logger,
+                                frames_data_changed_event,
                                 frames_data_lock,
                                 frames_data,
                                 prev_frame_id=-1,       # CAUTION: Needs to be '-1' and not 'None'
@@ -127,20 +130,30 @@ def checkAndUpdateNewFramesData(frames_data_changed_event,
         program = frames_data[settings.JSON_DATA_KEY]
         rgb_frame_data = []
         frame_id = prev_frame_id + 1
-        # Execute the host given program to calculate next frame
-        # NOTE: We restrict access to global and local variables for simple sandboxing.
-        exec(program,                                                   # Python program as string
-             {'state': program_state},                                  # Globals
-             {'frame_id': frame_id, 'rgb_frame_data': rgb_frame_data})  # Locals
-        rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
 
-        # NOTE: For '0' to start from beginning frame index 0
-        return (frame_id,
-                prev_max_frame_id,
-                sys.maxsize,
-                interval_secs,
-                settings.JSON_DATA_TYPE_PROGRAM,
-                rgbp_frames_data)
+        try:
+            # Execute the host given program to calculate next frame
+            # NOTE: We restrict access to global and local variables for simple sandboxing.
+            exec(program,                                                   # Python program as string
+                 {'state': program_state},                                  # Globals
+                 {'frame_id': frame_id, 'rgb_frame_data': rgb_frame_data})  # Locals
+
+        except Exception as ex:
+            logger.error("An exception occurred while executing host provided program in 'checkAndUpdateNewFramesData()': {}"\
+                .format(ex))
+
+            # Turn off all LEDs
+            ROW_ALL_LED_OFF_BYTE = 0x00  # Turn all LEDs white on a row
+            rgb_frame_data = [[ROW_ALL_LED_OFF_BYTE]*(TOTAL_PRIMARY_COLORS * settings.TOTAL_LEDMATRIX_ROWS)]
+
+        finally:
+            rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
+
+            return (frame_id,
+                    sys.maxsize,
+                    interval_secs,
+                    settings.JSON_DATA_TYPE_PROGRAM,
+                    rgbp_frames_data)
 
     return ((prev_frame_id + 1),
             prev_max_frame_id,

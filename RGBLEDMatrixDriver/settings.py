@@ -16,8 +16,8 @@ HOST_COM_PORT_CONFIG = \
 
 # SPI Port settings
 SPI_BUS = 0
-CPU_SPEED_HZ = 900000000   # 900 MHz, we have forced device CPU to this frequency
-SPI_SPEED_HZ = 500000   # 500 KHz
+CPU_SPEED_HZ = 900000000    # 900 MHz, we have forced device CPU to this frequency
+SPI_MAX_SPEED_HZ = 500000   # 500 KHz
 SPI_ONE_CLOCK_WAIT_SPIN_TIMES = int(CPU_SPEED_HZ / SPI_SPEED_HZ)
 import RPi.GPIO as GPIO
 SPI_SLAVE_SELECT_PIN_MODE = GPIO.BCM
