@@ -45,13 +45,13 @@ def drawLEDDataForever(logger, frames_data_changed_event, frames_data_lock, fram
                                             data_type,
                                             rgbp_frames_data)
 
-            if frame_id == max_frames:
+            if frame_id == max_frames:  # Start from first frame again at the end of list
                 frame_id = 0
 
             # Send data to each slave
             rgbp_frames_data_index = (frame_id if data_type == settings.JSON_DATA_TYPE_FRAMES else 0)
             for slave_id, rgbp_frame_data in enumerate(chunks(rgbp_frames_data[rgbp_frames_data_index],\
-                                                                TOTAL_PRIMARY_COLORS * settings.NUM_ROWS_IN_ONE_SLAVE)):
+                                                              TOTAL_RGBP_BYTES*settings.NUM_ROWS_IN_ONE_LEDMATRIX)):
                 selectSPISlave(slave_id)    # Select specific slave to make it listen
                 spinWait(times=(settings.SPI_ONE_CLOCK_WAIT_SPIN_TIMES * 2))    # Wait two SPI clock cycles
 
@@ -125,7 +125,7 @@ def checkAndUpdateNewFramesData(logger,
         # NOTE: The following program has access to 'rgb_frame_data' variable
         # and is expected to populate it
         program = frames_data[settings.JSON_DATA_KEY]
-        rgb_frame_data = []
+        rgb_frame_data = [ROW_COLOR_OFF_BYTE]*(TOTAL_PRIMARY_COLORS*settings.TOTAL_LEDMATRIX_ROWS)
         frame_id = prev_frame_id + 1
 
         try:
@@ -141,12 +141,16 @@ def checkAndUpdateNewFramesData(logger,
                  None,          # Globals
                  local_vars)    # Locals
 
+            if len(rgb_frame_data) != (TOTAL_PRIMARY_COLORS*settings.TOTAL_LEDMATRIX_ROWS):
+                raise Exception("Host provided LED program provided frame data not equal to {} bytes."\
+                    .format(TOTAL_PRIMARY_COLORS*settings.TOTAL_LEDMATRIX_ROWS))
+
         except Exception as ex:
             logger.error("An exception occurred while executing host provided program in '{}()': {}"\
                 .format(checkAndUpdateNewFramesData.__name__, ex))
 
             # Turn off all LEDs
-            rgb_frame_data = [[ROW_COLOR_OFF_BYTE]*(TOTAL_PRIMARY_COLORS * settings.TOTAL_LEDMATRIX_ROWS)]
+            rgb_frame_data = [ROW_COLOR_OFF_BYTE]*(TOTAL_PRIMARY_COLORS*settings.TOTAL_LEDMATRIX_ROWS)
 
         finally:
             rgbp_frames_data = formatRGBFramesDataForEP0075Matrix([rgb_frame_data])
@@ -169,10 +173,14 @@ def formatRGBFramesDataForEP0075Matrix(rgb_frames_data):
 
     # For each slave matrix, format RGB data to ~R~G~BP (where P is row position index in BCD starting from 1)
     for rgb_frame_data in rgb_frames_data:
-        rgbp_frame_data = []
-        for slave_rgb_frame_data in chunks(rgb_frame_data, (TOTAL_PRIMARY_COLORS * settings.NUM_ROWS_IN_ONE_SLAVE)):
-            for row, (r, g, b) in enumerate(chunks(slave_rgb_frame_data(TOTAL_PRIMARY_COLORS))):
-                rgbp_frame_data.extend((~r, ~g, ~b, (0x1 << row))) # NOTE: EP0075 wants RGB data inverted
+        rgbp_frame_data = [0]*(TOTAL_RGBP_BYTES*settings.TOTAL_LEDMATRIX_ROWS) # Preallocate
+
+        for slave_id, slave_rgb_frame_data in enumerate(chunks(rgb_frame_data,\
+                                                        (TOTAL_PRIMARY_COLORS*settings.NUM_ROWS_IN_ONE_LEDMATRIX))):
+            for row, (r, g, b) in enumerate(chunks(slave_rgb_frame_data, TOTAL_PRIMARY_COLORS)):
+                flat_row_index = (slave_id * settings.NUM_ROWS_IN_ONE_LEDMATRIX + row * TOTAL_PRIMARY_COLORS)
+                # NOTE: EP0075 wants RGB data inverted
+                rgbp_frame_data[flat_row_index:(flat_row_index+TOTAL_RGBP_BYTES)] = (~r, ~g, ~b, (0x1 << row))
 
         rgbp_frames_data.append(rgbp_frame_data)
 

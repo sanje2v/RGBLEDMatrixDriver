@@ -4,11 +4,11 @@ ROW_COLOR_ON_BYTE = 0xFF    # Turn all LEDs of a color in a row
 ROW_COLOR_OFF_BYTE = 0x00   # Turn off LEDs of a color in a row
 
 # REF: https://chrisalbon.com/python/data_wrangling/break_list_into_chunks_of_equal_size/
-def chunks(l, n):   # NOTE: 'n' is number of items per chuck
+def chunks(l, chunk_size):   # NOTE: 'chunk_size' is number of items per chuck
     # For item i in a range that is a length of l,
-    for i in range(0, len(l), n):
-        # Create an index range for l of n items:
-        yield l[i:i+n]
+    for i in range(0, len(l), chunk_size):
+        # Create an index range for l of chuck_size items:
+        yield l[i:i+chunk_size]
 
 
 def spinWait(times):

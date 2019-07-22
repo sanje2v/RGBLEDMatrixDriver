@@ -53,12 +53,12 @@ def assertJSONDataIsValid(data_dict):
            raise Exception("Value of key '{}' is empty in data_dict.".format(settings.JSON_DATA_KEY))
 
        if data_dict[settings.JSON_DATA_TYPE_KEY] == settings.JSON_DATA_TYPE_FRAMES:
-           REQUIRED_NUM_OF_RGB_DATA_BYTES = settings.TOTAL_LEDMATRIX_ROWS * TOTAL_PRIMARY_COLORS * settings.NUM_SLAVES
-           for i, l in enumerate(data_dict[settings.JSON_DATA_KEY]):
-               if not type(l) is list:
+           REQUIRED_NUM_OF_RGB_DATA_BYTES = TOTAL_PRIMARY_COLORS * settings.TOTAL_LEDMATRIX_ROWS
+           for i, frame in enumerate(data_dict[settings.JSON_DATA_KEY]):
+               if not type(frame) is list:
                    raise Exception("Items in value of key '{}' is not list of lists in data_dict.".format(settings.JSON_DATA_KEY))
 
-               if len(l) != REQUIRED_NUM_OF_RGB_DATA_BYTES:
+               if len(frame) != REQUIRED_NUM_OF_RGB_DATA_BYTES:
                    raise Exception("The RGB data list of index {} of key '{}' does not contain exactly {} number of RGB data in data_dict."\
                        .format(i, settings.JSON_DATA_KEY, REQUIRED_NUM_OF_RGB_DATA_BYTES))
 
