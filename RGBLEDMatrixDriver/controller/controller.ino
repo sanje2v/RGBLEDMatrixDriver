@@ -15,6 +15,7 @@
 #define NUM_COLORS_PER_ROW_DOT                          3
 #define ONE_MATRIX_FRAME_SIZE                           (NUM_ROWS_PER_MATRIX * NUM_COLORS_PER_ROW_DOT)
 #define ONE_FRAME_SIZE                                  (NUM_LED_MATRICES * ONE_MATRIX_FRAME_SIZE)
+#define MAX_FRAMES                                      uint8_t(MAX_FRAME_BUFFER_SIZE / ONE_FRAME_SIZE)
 #define NUM_REDRAW_EACH_FRAME                           100
 static const int SLAVE_SELECT_PINS[NUM_LED_MATRICES]  = { 10, 11, 12, 13 };   // CAUTION: Make sure the number of pins match 'NUM_LED_MATRICES'
 
@@ -89,15 +90,20 @@ void setup()
   
   // Point to first frame
   g_CurrentFrameIndex = 0;
+
+  // Notify host that this LED controller has been initialized
+  Serial.println(F("INITIALIZED"));
 }
 
 void loop()
 {
   // If this is the last frame, notify host
-  if (g_CurrentFrameIndex + 1 == uint8_t(g_FrameBufferSize / ONE_FRAME_SIZE))
+  // NOTE: This hint can allow the host to send next set of frames.
+  if ((g_CurrentFrameIndex + 1) == uint8_t(g_FrameBufferSize / ONE_FRAME_SIZE))
     Serial.println(F("COMPLETE"));
   
   // Draw current frame
+  // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
   for (uint8_t t = 0; t < NUM_REDRAW_EACH_FRAME; ++t)
   {
     for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
@@ -106,7 +112,7 @@ void loop()
       
       for (uint8_t j = 0; j < NUM_ROWS_PER_MATRIX; ++j)
       {
-        digitalWrite(SLAVE_SELECT_PINS[i], LOW);
+        digitalWrite(SLAVE_SELECT_PINS[i], LOW);  // Select a slave LED matrix
   
         for (uint8_t k = 0; k < NUM_COLORS_PER_ROW_DOT; ++k)
         {
@@ -114,12 +120,12 @@ void loop()
         }
         SPI.transfer(0x01 << j);  // Send row index for current LED matrix
   
-        digitalWrite(SLAVE_SELECT_PINS[i], HIGH);
+        digitalWrite(SLAVE_SELECT_PINS[i], HIGH); // Deselect the selected LED matrix
       }
 
       // Explicitly need to turn off the last row of LEDs in the matrix
-      // before displaying next frame, so that unwanted lingering previous
-      // data do not remain.
+      // before displaying next frame so that unwanted lingering previous
+      // data for last row does not remain.
       digitalWrite(SLAVE_SELECT_PINS[i], LOW);
       for (uint8_t k = 0; k < NUM_COLORS_PER_ROW_DOT; ++k)
       {
@@ -137,6 +143,13 @@ void loop()
     
     do
     {
+      // Check if max frame memory has exceeded
+      if (CurrentFrameIndex == MAX_FRAMES)
+      {
+        Serial.println(F("ERROR: Too many frames given!"));
+        CurrentFrameIndex = 0;
+      }
+      
       // Read a frame of data
       size_t bytesRead = Serial.readBytes(&g_pFrameBuffer[CurrentFrameIndex * ONE_FRAME_SIZE], ONE_FRAME_SIZE);
       
