@@ -1,0 +1,144 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <object class="tk.Toplevel" id="mainwindow">
+    <property name="geometry">600x400</property>
+    <property name="height">200</property>
+    <property name="resizable">none</property>
+    <property name="title" translatable="yes">RGB LED Matrix Driver for EP-0075</property>
+    <child>
+      <object class="ttk.Frame" id="mainframe">
+        <property name="padding">10</property>
+        <property name="takefocus">false</property>
+        <layout>
+          <property name="propagate">True</property>
+          <rows>
+            <row id="0">
+              <property name="pad">0</property>
+            </row>
+            <row id="1">
+              <property name="pad">0</property>
+            </row>
+          </rows>
+          <columns>
+            <column id="0">
+              <property name="minsize">0</property>
+              <property name="pad">0</property>
+            </column>
+          </columns>
+        </layout>
+        <child>
+          <object class="ttk.Frame" id="Frame_2">
+            <layout>
+              <property name="column">0</property>
+              <property name="columnspan">2</property>
+              <property name="propagate">True</property>
+              <property name="row">0</property>
+              <property name="rowspan">1</property>
+              <columns>
+                <column id="0">
+                  <property name="pad">0</property>
+                </column>
+              </columns>
+            </layout>
+            <child>
+              <object class="ttk.Label" id="Label_2">
+                <property name="takefocus">false</property>
+                <property name="text" translatable="yes">Select COM port:</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="propagate">True</property>
+                  <property name="row">0</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Combobox" id="cmb_ports">
+                <property name="cursor">arrow</property>
+                <property name="exportselection">true</property>
+                <property name="justify">left</property>
+                <property name="state">readonly</property>
+                <property name="takefocus">false</property>
+                <property name="textvariable">string:cmb_ports_selected</property>
+                <property name="width">20</property>
+                <layout>
+                  <property name="column">1</property>
+                  <property name="propagate">True</property>
+                  <property name="row">0</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Button" id="btn_connect">
+                <property name="command">btn_connect_click</property>
+                <property name="default">active</property>
+                <property name="text" translatable="yes">Connect</property>
+                <property name="width">15</property>
+                <layout>
+                  <property name="column">2</property>
+                  <property name="propagate">True</property>
+                  <property name="row">0</property>
+                  <property name="sticky">e</property>
+                </layout>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Frame" id="Frame_3">
+            <property name="height">200</property>
+            <property name="width">200</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="propagate">True</property>
+              <property name="row">1</property>
+              <columns>
+                <column id="0">
+                  <property name="minsize">0</property>
+                </column>
+              </columns>
+            </layout>
+            <child>
+              <object class="ttk.Label" id="Label_3">
+                <property name="text" translatable="yes">Serial output:</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="propagate">True</property>
+                  <property name="row">0</property>
+                  <property name="sticky">w</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="tk.Text" id="txt_serialoutput">
+                <property name="autoseparators">true</property>
+                <property name="exportselection">true</property>
+                <property name="font">TkMenuFont</property>
+                <property name="height">10</property>
+                <property name="insertunfocussed">hollow</property>
+                <property name="tabstyle">tabular</property>
+                <property name="takefocus">false</property>
+                <property name="wrap">none</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="propagate">True</property>
+                  <property name="row">1</property>
+                </layout>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Frame" id="Frame_4">
+            <property name="height">200</property>
+            <property name="width">200</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="propagate">True</property>
+              <property name="row">2</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
