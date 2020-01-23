@@ -14,11 +14,10 @@ class Application:
         # Create a builder
         self.builder = builder = pygubu.Builder()
 
-        # Load an ui file
+        # Load mainwindow ui file and set its icon
         builder.add_from_file(os.path.join('ui', 'mainwindow.ui'))
-
-        # Create the widget using a master as parent
         self.mainwindow = builder.get_object('mainwindow')
+        self.mainwindow.iconbitmap(os.path.join('ui', 'app.ico'))
 
         # Store references to controls
         self.cmb_ports = builder.get_object('cmb_ports')
@@ -48,6 +47,12 @@ class Application:
                 if (com_port.in_waiting):
                     message = com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE).decode('utf-8')
                     self.txt_serialoutput.insert(tk.END, message)
+
+                    # See if it is 'COMPLETED' message which means we need to send next set 
+                    # of frames if all the frames don't in controller's memory.
+                    if message == CONTROLLER_LAST_FRAME_MESSAGE:
+                        #
+
         finally:
             com_port.close()
 

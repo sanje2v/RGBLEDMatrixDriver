@@ -8,6 +8,7 @@
 // SETTINGS
 #define LED_ROW_ON                                      (byte)0x00    // NOTE: This is valid for EP-005 LED matrix
 #define LED_ROW_OFF                                     (byte)0xFF    // NOTE: This is valid for EP-005 LED matrix
+#define LED_ROW_ALTERNATE_ON                            (byte)0xAA    // NOTE: This is valid for EP-005 LED matrix
 #define SERIAL_SPEED_BPS                                115200
 #define MAX_FRAME_BUFFER_SIZE                           (1 * 1024)
 #define NUM_LED_MATRICES                                4
@@ -52,7 +53,7 @@ void setup()
       {
         for (uint8_t l = 0; l < NUM_COLORS_PER_ROW_DOT; ++l)
         {
-          pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = (i < 5 ? LED_ROW_ON : LED_ROW_OFF);
+          pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = (i < 5 ? LED_ROW_ALTERNATE_ON : LED_ROW_OFF);
         }
       }
     }

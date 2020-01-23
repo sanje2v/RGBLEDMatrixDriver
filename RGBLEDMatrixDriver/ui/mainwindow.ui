@@ -1,14 +1,17 @@
 <?xml version='1.0' encoding='utf-8'?>
 <interface>
   <object class="tk.Toplevel" id="mainwindow">
-    <property name="geometry">600x400</property>
-    <property name="height">200</property>
+    <property name="geometry">500x180</property>
+    <property name="height">500</property>
     <property name="resizable">none</property>
     <property name="title" translatable="yes">RGB LED Matrix Driver for EP-0075</property>
+    <property name="width">180</property>
     <child>
       <object class="ttk.Frame" id="mainframe">
-        <property name="padding">10</property>
+        <property name="height">500</property>
+        <property name="padding">15</property>
         <property name="takefocus">false</property>
+        <property name="width">180</property>
         <layout>
           <property name="propagate">True</property>
           <rows>
@@ -28,9 +31,11 @@
         </layout>
         <child>
           <object class="ttk.Frame" id="Frame_2">
+            <property name="width">180</property>
             <layout>
               <property name="column">0</property>
               <property name="columnspan">2</property>
+              <property name="pady">10</property>
               <property name="propagate">True</property>
               <property name="row">0</property>
               <property name="rowspan">1</property>
@@ -43,7 +48,7 @@
             <child>
               <object class="ttk.Label" id="Label_2">
                 <property name="takefocus">false</property>
-                <property name="text" translatable="yes">Select COM port:</property>
+                <property name="text" translatable="yes">COM port:</property>
                 <layout>
                   <property name="column">0</property>
                   <property name="propagate">True</property>
@@ -62,6 +67,7 @@
                 <property name="width">20</property>
                 <layout>
                   <property name="column">1</property>
+                  <property name="padx">5</property>
                   <property name="propagate">True</property>
                   <property name="row">0</property>
                 </layout>
@@ -75,6 +81,7 @@
                 <property name="width">15</property>
                 <layout>
                   <property name="column">2</property>
+                  <property name="padx">20</property>
                   <property name="propagate">True</property>
                   <property name="row">0</property>
                   <property name="sticky">e</property>
@@ -85,10 +92,10 @@
         </child>
         <child>
           <object class="ttk.Frame" id="Frame_3">
-            <property name="height">200</property>
-            <property name="width">200</property>
+            <property name="width">180</property>
             <layout>
               <property name="column">0</property>
+              <property name="pady">10</property>
               <property name="propagate">True</property>
               <property name="row">1</property>
               <columns>
@@ -113,10 +120,11 @@
                 <property name="autoseparators">true</property>
                 <property name="exportselection">true</property>
                 <property name="font">TkMenuFont</property>
-                <property name="height">10</property>
+                <property name="height">15</property>
                 <property name="insertunfocussed">hollow</property>
                 <property name="tabstyle">tabular</property>
                 <property name="takefocus">false</property>
+                <property name="width">77</property>
                 <property name="wrap">none</property>
                 <layout>
                   <property name="column">0</property>
@@ -129,10 +137,11 @@
         </child>
         <child>
           <object class="ttk.Frame" id="Frame_4">
-            <property name="height">200</property>
-            <property name="width">200</property>
+            <property name="height">0</property>
+            <property name="width">0</property>
             <layout>
               <property name="column">0</property>
+              <property name="pady">10</property>
               <property name="propagate">True</property>
               <property name="row">2</property>
             </layout>
