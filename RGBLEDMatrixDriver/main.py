@@ -2,6 +2,7 @@ import os
 import serial
 import serial.tools.list_ports
 import threading
+from copy import copy
 import pygubu
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -10,6 +11,8 @@ import settings
 
 
 class Application:
+    DISPATCHER_CHECK_PERIOD_MS = 200
+
     def __init__(self, ports):
         # Create a builder
         self.builder = builder = pygubu.Builder()
@@ -18,6 +21,7 @@ class Application:
         builder.add_from_file(os.path.join('ui', 'mainwindow.ui'))
         self.mainwindow = builder.get_object('mainwindow')
         self.mainwindow.iconbitmap(os.path.join('ui', 'app.ico'))
+        self.mainwindow.protocol('WM_DELETE_WINDOW', self.quit)
 
         # Store references to controls
         self.cmb_ports = builder.get_object('cmb_ports')
@@ -37,6 +41,10 @@ class Application:
         # Select first COM port
         self.builder.get_variable('cmb_ports_selected').set(ports[0])
 
+        # Prepare dispatcher
+        self.gui_dispatcher_queue = []
+        self.mainwindow.after(self.DISPATCHER_CHECK_PERIOD_MS, self.gui_dispatcher)
+
 
     def thread_worker_func(self, com_port):
         # This thread:
@@ -46,11 +54,11 @@ class Application:
             while (not self.thread_worker_signal.isSet()):
                 if (com_port.in_waiting):
                     message = com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE).decode('utf-8')
-                    self.txt_serialoutput.insert(tk.END, message)
+                    self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, copy(message)))
 
                     # See if it is 'COMPLETED' message which means we need to send next set 
                     # of frames if all the frames don't in controller's memory.
-                    if message == CONTROLLER_LAST_FRAME_MESSAGE:
+                    #if message == CONTROLLER_LAST_FRAME_MESSAGE:
                         #
 
         finally:
@@ -74,8 +82,16 @@ class Application:
             self.btn_connect.configure(state='normal')
 
 
+    def gui_dispatcher(self):
+        while(self.gui_dispatcher_queue):
+            # Call the function in local thread
+            self.gui_dispatcher_queue.pop(0)()
+
+        self.mainwindow.after(self.DISPATCHER_CHECK_PERIOD_MS, self.gui_dispatcher)
+
+
     def quit(self, event=None):
-        self.mainwindow.quit()
+        self.mainwindow.destroy()
 
         if self.thread_worker:
             self.thread_worker_signal.set()
@@ -92,7 +108,7 @@ if __name__ == '__main__':
         print("ERROR: No COM ports were found in your system! Aborted.")
         exit(-1)
 
-    app = Application(list(map(lambda x: x.device, com_ports)))
+    app = Application([x.device for x in com_ports])
     app.run()
 
     exit(0)
