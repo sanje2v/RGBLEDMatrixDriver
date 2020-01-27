@@ -32,62 +32,30 @@ static SoftwareSerial SSerial(2, 3);
 
 void fillFrameBufferWithDefaultPattern()
 {
-  const uint8_t NUM_DEFAULT_FRAMES = 18;
+  const uint8_t NUM_DEFAULT_FRAMES = 18;  // CAUTION: This value should not exceed 'MAX_FRAMES'
 
+  byte rowStates[ONE_FRAME_SIZE];
   for (uint8_t i = 0; i < NUM_DEFAULT_FRAMES; ++i)
   {
+    if (i % 3 == 0)
+    {
+      for (uint8_t m = 0; m < ONE_FRAME_SIZE; ++m)
+        rowStates[m] = (byte)random(0, 256);  // Random byte value from 0 to 255
+    }
+    
     for (uint8_t j = 0; j < NUM_LED_MATRICES; ++j)
     {
       byte *pCurrentMatrixFrameBuffer = &g_pFrameBuffer[(i * ONE_FRAME_SIZE) + (j * ONE_MATRIX_FRAME_SIZE)];
       
       for (uint8_t k = 0; k < NUM_ROWS_PER_MATRIX; ++k)
-      {
+      { 
         for (uint8_t l = 0; l < NUM_COLORS_PER_ROW_DOT; ++l)
         {
-          switch (j)
-          {
-            case 0:
-              break;
-
-            case 1:
-              break;
-
-            case 2:
-              break;
-          }
-          
-          pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = (i < 14 ? LED_ROW_ALTERNATE_ON : LED_ROW_OFF);
+          pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = rowStates[k * NUM_COLORS_PER_ROW_DOT + l];
         }
       }
     }
   }
-  
-
-  /*byte *pFrameBuffer = g_pFrameBuffer;
-  for (uint8_t i = 0; i < ONE_FRAME_SIZE; i += NUM_COLORS_PER_ROW_DOT)
-  {
-    pFrameBuffer[i+0] = (i % 2 == 0 ? LED_ROW_ON : LED_ROW_OFF);   // Red LED
-    pFrameBuffer[i+1] = LED_ROW_OFF; // Blue LED
-    pFrameBuffer[i+2] = LED_ROW_OFF; // Green LED
-  }
-
-  pFrameBuffer += ONE_FRAME_SIZE;
-  for (uint8_t i = 0; i < ONE_FRAME_SIZE; i += NUM_COLORS_PER_ROW_DOT)
-  {
-    pFrameBuffer[i+0] = LED_ROW_OFF;   // Red LED
-    pFrameBuffer[i+1] = (i % 2 == 1 ? LED_ROW_ON : LED_ROW_OFF); // Green LED
-    pFrameBuffer[i+2] = (i % 2 == 1 ? LED_ROW_ON : LED_ROW_OFF); // Blue LED
-  }*/
-
-  /*for (uint8_t i = 0; i < NUM_DEFAULT_FRAMES; ++i)
-  {
-    for (uint8_t j = 0; j < ONE_FRAME_SIZE; j += NUM_COLORS_PER_ROW_DOT)
-    {
-      g_pFrameBuffer[i * NUM_DEFAULT_FRAMES + j + 0] = (i % 2 == 0 ? LED_RGB_ON : LED_RGB_OFF);  // Red LED
-      g_pFrameBuffer[i * NUM_DEFAULT_FRAMES + j + 1] = (i % 2 == 0 ? LED_RGB_OFF : LED_RGB_ON);  // Green LED
-      g_pFrameBuffer[i * NUM_DEFAULT_FRAMES + j + 2] = (i % 2 == 0 ? LED_RGB_OFF : LED_RGB_ON);  // Blue LED
-    }
-  }*/
   
   // Set size of frame buffer for default pattern
   g_FrameBufferSize = NUM_DEFAULT_FRAMES * ONE_FRAME_SIZE;
@@ -98,6 +66,9 @@ void fillFrameBufferWithDefaultPattern()
 
 void setup()
 {
+  // Initialize random seed generator
+  randomSeed(analogRead(0));
+  
   // Initialize SPI for controlling LEDs and Serial for communicating with master
   SPI.begin();
   SSerial.begin(SERIAL_SPEED_BPS);
@@ -127,27 +98,26 @@ void loop()
   
   // Draw current frame
   // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
-  unsigned long start_time = millis();
+  //unsigned long start_time = millis();
   
   for (uint8_t t = 0; t < NUM_REDRAW_EACH_FRAME; ++t)
   {
     for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
     {
       byte *pCurrentMatrixFrameBuffer = &g_pFrameBuffer[(g_CurrentFrameIndex * ONE_FRAME_SIZE) + (i * ONE_MATRIX_FRAME_SIZE)];
-      
       for (uint8_t j = 0; j < NUM_ROWS_PER_MATRIX; ++j)
       {
         digitalWrite(SLAVE_SELECT_PINS[i], LOW);  // Select a slave LED matrix
-  
+
         for (uint8_t k = 0; k < NUM_COLORS_PER_ROW_DOT; ++k)
         {
           SPI.transfer(pCurrentMatrixFrameBuffer[j * NUM_COLORS_PER_ROW_DOT + k]);
         }
         SPI.transfer(0x01 << j);  // Send row index for current LED matrix
-  
+
         digitalWrite(SLAVE_SELECT_PINS[i], HIGH); // Deselect the selected LED matrix
       }
-
+      
       // Explicitly need to turn off the last row of LEDs in the matrix
       // before displaying next frame so that unwanted lingering previous
       // data for last row does not remain.
@@ -161,7 +131,7 @@ void loop()
     }
   }
 
-  SSerial.println(millis() - start_time);
+  //SSerial.println(millis() - start_time);
 
   // Check if there is data available in Serial port from host
   if (SSerial.available() > 0)
