@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <interface>
   <object class="tk.Toplevel" id="mainwindow">
-    <property name="geometry">500x180</property>
+    <property name="geometry">500x500</property>
     <property name="height">500</property>
     <property name="resizable">none</property>
     <property name="title" translatable="yes">RGB LED Matrix Driver for EP-0075</property>
-    <property name="width">180</property>
+    <property name="width">500</property>
     <child>
       <object class="ttk.Frame" id="mainframe">
         <property name="height">500</property>
@@ -117,19 +117,24 @@
             </child>
             <child>
               <object class="tk.Text" id="txt_serialoutput">
-                <property name="autoseparators">true</property>
-                <property name="exportselection">true</property>
-                <property name="font">TkMenuFont</property>
-                <property name="height">15</property>
-                <property name="insertunfocussed">hollow</property>
-                <property name="tabstyle">tabular</property>
-                <property name="takefocus">false</property>
-                <property name="width">77</property>
+                <property name="undo">false</property>
+                <property name="width">50</property>
                 <property name="wrap">none</property>
                 <layout>
                   <property name="column">0</property>
                   <property name="propagate">True</property>
                   <property name="row">1</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Scrollbar" id="sbr_serialoutput">
+                <property name="orient">vertical</property>
+                <layout>
+                  <property name="column">1</property>
+                  <property name="propagate">True</property>
+                  <property name="row">1</property>
+                  <property name="sticky">ns</property>
                 </layout>
               </object>
             </child>

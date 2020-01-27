@@ -13,6 +13,7 @@ import settings
 class Application:
     DISPATCHER_CHECK_PERIOD_MS = 200
 
+
     def __init__(self, ports):
         # Create a builder
         self.builder = builder = pygubu.Builder()
@@ -27,6 +28,12 @@ class Application:
         self.cmb_ports = builder.get_object('cmb_ports')
         self.btn_connect = builder.get_object('btn_connect')
         self.txt_serialoutput = builder.get_object('txt_serialoutput')
+        self.sbr_serialoutput = builder.get_object('sbr_serialoutput')
+
+        # Set up controls
+        # 1. Wireup scrollbar
+        self.sbr_serialoutput.configure(command=self.txt_serialoutput.yview)
+        self.txt_serialoutput.configure(yscrollcommand=self.sbr_serialoutput.set)
 
         # Configure variables
         self.thread_worker = None
@@ -47,19 +54,47 @@ class Application:
 
 
     def thread_worker_func(self, com_port):
+        # TEST ONLY
+        LAST_FRAME_WRITE_OUT = 0
+        NUM_DEFAULT_FRAMES = 18
+        FRAMES = [0xFF]*(4 * 9 * 96)
+
+        # Add RED
+        for i in range(0, (9 * 96), 3):
+            FRAMES[i+0] = 0x00  # Red
+            FRAMES[i+1] = 0xFF  # Green
+            FRAMES[i+2] = 0xFF  # Blue
+
+        # Add GREEN
+        for i in range(0, (9 * 96), 3):
+            FRAMES[i+0] = 0xFF
+            FRAMES[i+1] = 0x00  # Green
+            FRAMES[i+2] = 0xFF
+
+        # Add BLUE
+        for i in range(0, (9 * 96), 3):
+            FRAMES[i+0] = 0xFF
+            FRAMES[i+1] = 0xFF  # Green
+            FRAMES[i+2] = 0x00
+
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
         # 2. If 'COMPLETED\r\n' message is received from slave, next set of frames are written out.
         try:
+            com_port.flushOutput()
+            com_port.flushInput()
+
             while (not self.thread_worker_signal.isSet()):
                 if (com_port.in_waiting):
-                    message = com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE).decode('utf-8')
+                    message = com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES).decode('utf-8')
                     self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, copy(message)))
 
-                    # See if it is 'COMPLETED' message which means we need to send next set 
+                    # See if it is 'COMPLETED' message which means we need to send next set
                     # of frames if all the frames don't in controller's memory.
-                    #if message == CONTROLLER_LAST_FRAME_MESSAGE:
-                        #
+                    if message == settings.CONTROLLER_LAST_FRAME_MESSAGE:
+                        com_port.write(bytearray(FRAMES[LAST_FRAME_WRITE_OUT:(LAST_FRAME_WRITE_OUT + 2 * 9 * 96)]))
+
+                        LAST_FRAME_WRITE_OUT = (LAST_FRAME_WRITE_OUT + (2 * 9 * 96)) % len(FRAMES)
 
         finally:
             com_port.close()
@@ -84,7 +119,7 @@ class Application:
 
     def gui_dispatcher(self):
         while(self.gui_dispatcher_queue):
-            # Call the function in local thread
+            # Call the function in GUI thread
             self.gui_dispatcher_queue.pop(0)()
 
         self.mainwindow.after(self.DISPATCHER_CHECK_PERIOD_MS, self.gui_dispatcher)

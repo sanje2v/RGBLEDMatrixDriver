@@ -37,21 +37,52 @@ void fillFrameBufferWithDefaultPattern()
   byte rowStates[ONE_FRAME_SIZE];
   for (uint8_t i = 0; i < NUM_DEFAULT_FRAMES; ++i)
   {
-    if (i % 3 == 0)
+    /*if (i % 3 == 0)
     {
-      for (uint8_t m = 0; m < ONE_FRAME_SIZE; ++m)
-        rowStates[m] = (byte)random(0, 256);  // Random byte value from 0 to 255
-    }
+      for (uint8_t m = 0; m < ONE_FRAME_SIZE; m += NUM_COLORS_PER_ROW_DOT)
+      {
+        byte rowState = (byte)random(0, 256);  // Random byte value from 0 to 255
+        switch (random(3))
+        {
+          case 0:
+            rowStates[m + 0] = rowState;
+            rowStates[m + 1] = 0xFF;
+            rowStates[m + 2] = 0xFF;
+            break;
+
+          case 1:
+            rowStates[m + 0] = 0xFF;
+            rowStates[m + 1] = rowState;
+            rowStates[m + 2] = 0xFF;
+            break;
+
+          case 2:
+            rowStates[m + 0] = 0xFF;
+            rowStates[m + 1] = 0xFF;
+            rowStates[m + 2] = rowState;
+            break;
+        }
+      }
+    }*/
     
     for (uint8_t j = 0; j < NUM_LED_MATRICES; ++j)
     {
       byte *pCurrentMatrixFrameBuffer = &g_pFrameBuffer[(i * ONE_FRAME_SIZE) + (j * ONE_MATRIX_FRAME_SIZE)];
       
       for (uint8_t k = 0; k < NUM_ROWS_PER_MATRIX; ++k)
-      { 
+      {
         for (uint8_t l = 0; l < NUM_COLORS_PER_ROW_DOT; ++l)
         {
-          pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = rowStates[k * NUM_COLORS_PER_ROW_DOT + l];
+          byte rowState;
+          if (i < 9)
+          {
+            rowState = (l == 1 ? 0x00 : 0xFF);
+          }
+          else
+          {
+            rowState = (l == 2 ? 0x00 : 0xFF);
+          }
+          pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = rowState;//rowStates[k * NUM_COLORS_PER_ROW_DOT + l];
         }
       }
     }
@@ -73,7 +104,7 @@ void setup()
   SPI.begin();
   SSerial.begin(SERIAL_SPEED_BPS);
   //while (Serial) {}   // NOTE: Native serials need to be waited until ready
-  SSerial.setTimeout(1000);
+  SSerial.setTimeout(10000);
 
   // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
   for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
@@ -94,7 +125,7 @@ void loop()
   // If this is the last frame, notify host
   // NOTE: This hint can allow the host to send next set of frames.
   if ((g_CurrentFrameIndex + 1) == uint8_t(g_FrameBufferSize / ONE_FRAME_SIZE))
-    SSerial.println(F("COMPLETE"));
+    SSerial.println(F("COMPLETED"));
   
   // Draw current frame
   // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
@@ -150,13 +181,14 @@ void loop()
       
       // Read a frame of data
       size_t bytesRead = SSerial.readBytes(&g_pFrameBuffer[CurrentFrameIndex * ONE_FRAME_SIZE], ONE_FRAME_SIZE);
-      
       if (bytesRead == ONE_FRAME_SIZE)
         SSerial.println(F("OK: Received a good frame."));
       else
       {
+        SSerial.println(bytesRead);
         SSerial.println(F("ERROR: Incorrect sized frame received!"));
 
+        
         // We revert to default pattern
         fillFrameBufferWithDefaultPattern();
         ErrorOccurred = true;
