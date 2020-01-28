@@ -5,21 +5,20 @@
  */
 
 #include <SPI.h>
-#include <SoftwareSerial.h>
 
 // SETTINGS
 #define LED_ROW_ON                                      (byte)0x00    // NOTE: This is valid for EP-005 LED matrix
 #define LED_ROW_OFF                                     (byte)0xFF    // NOTE: This is valid for EP-005 LED matrix
 #define LED_ROW_ALTERNATE_ON                            (byte)0xAA    // NOTE: This is valid for EP-005 LED matrix
 #define SERIAL_SPEED_BPS                                115200
-#define MAX_FRAME_BUFFER_SIZE                           1824          // NOTE: For 4 matrices, this allows for 19 frames
 #define NUM_LED_MATRICES                                4
 #define NUM_ROWS_PER_MATRIX                             8
 #define NUM_COLORS_PER_ROW_DOT                          3
 #define ONE_MATRIX_FRAME_SIZE                           (NUM_ROWS_PER_MATRIX * NUM_COLORS_PER_ROW_DOT)
 #define ONE_FRAME_SIZE                                  (NUM_LED_MATRICES * ONE_MATRIX_FRAME_SIZE)
+#define MAX_FRAME_BUFFER_SIZE                           (12 * ONE_FRAME_SIZE)          // NOTE: For 4 matrices, this allows for 12 frames
 #define MAX_FRAMES                                      uint8_t(MAX_FRAME_BUFFER_SIZE / ONE_FRAME_SIZE)
-#define NUM_REDRAW_EACH_FRAME                           60
+#define NUM_REDRAW_EACH_FRAME                           118
 static const int SLAVE_SELECT_PINS[NUM_LED_MATRICES]  = { 10, 11, 12, 13 };   // CAUTION: Make sure the number of pins match 'NUM_LED_MATRICES'
 
 // Global allocation
@@ -27,12 +26,10 @@ static byte g_pFrameBuffer[MAX_FRAME_BUFFER_SIZE];
 static int g_FrameBufferSize;
 static uint8_t g_CurrentFrameIndex;
 
-static SoftwareSerial SSerial(2, 3);
-
 
 void fillFrameBufferWithDefaultPattern()
 {
-  const uint8_t NUM_DEFAULT_FRAMES = 18;  // CAUTION: This value should not exceed 'MAX_FRAMES'
+  const uint8_t NUM_DEFAULT_FRAMES = 12;  // CAUTION: This value should not exceed 'MAX_FRAMES'
 
   byte rowStates[ONE_FRAME_SIZE];
   for (uint8_t i = 0; i < NUM_DEFAULT_FRAMES; ++i)
@@ -74,7 +71,7 @@ void fillFrameBufferWithDefaultPattern()
         for (uint8_t l = 0; l < NUM_COLORS_PER_ROW_DOT; ++l)
         {
           byte rowState;
-          if (i < 9)
+          if (i < (NUM_DEFAULT_FRAMES/2))
           {
             rowState = (l == 1 ? 0x00 : 0xFF);
           }
@@ -102,9 +99,8 @@ void setup()
   
   // Initialize SPI for controlling LEDs and Serial for communicating with master
   SPI.begin();
-  SSerial.begin(SERIAL_SPEED_BPS);
-  //while (Serial) {}   // NOTE: Native serials need to be waited until ready
-  SSerial.setTimeout(10000);
+  Serial.begin(SERIAL_SPEED_BPS);
+  Serial.setTimeout(1000);
 
   // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
   for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
@@ -117,7 +113,7 @@ void setup()
   fillFrameBufferWithDefaultPattern();
 
   // Notify host that this LED controller has been initialized
-  SSerial.println(F("INITIALIZED"));
+  Serial.println(F("INITIALIZED"));
 }
 
 void loop()
@@ -125,7 +121,7 @@ void loop()
   // If this is the last frame, notify host
   // NOTE: This hint can allow the host to send next set of frames.
   if ((g_CurrentFrameIndex + 1) == uint8_t(g_FrameBufferSize / ONE_FRAME_SIZE))
-    SSerial.println(F("COMPLETED"));
+    Serial.println(F("COMPLETED"));
   
   // Draw current frame
   // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
@@ -162,12 +158,11 @@ void loop()
     }
   }
 
-  //SSerial.println(millis() - start_time);
+  //Serial.println(millis() - start_time);
 
   // Check if there is data available in Serial port from host
-  if (SSerial.available() > 0)
+  if (Serial.available() > 0)
   {
-    bool ErrorOccurred = false;
     uint8_t CurrentFrameIndex = 0;
     
     do
@@ -175,41 +170,37 @@ void loop()
       // Check if max frame memory has exceeded
       if (CurrentFrameIndex == MAX_FRAMES)
       {
-        SSerial.println(F("ERROR: Too many frames given!"));
+        Serial.println(F("ERROR: Too many frames given!"));
         CurrentFrameIndex = 0;
       }
       
       // Read a frame of data
-      size_t bytesRead = SSerial.readBytes(&g_pFrameBuffer[CurrentFrameIndex * ONE_FRAME_SIZE], ONE_FRAME_SIZE);
+      size_t bytesRead = Serial.readBytes(&g_pFrameBuffer[CurrentFrameIndex * ONE_FRAME_SIZE], ONE_FRAME_SIZE);
       if (bytesRead == ONE_FRAME_SIZE)
-        SSerial.println(F("OK: Received a good frame."));
+        Serial.println(F("OK: Received a good frame."));
       else
       {
-        SSerial.println(bytesRead);
-        SSerial.println(F("ERROR: Incorrect sized frame received!"));
-
+        Serial.println(F("ERROR: Incorrect sized frame received!"));
         
         // We revert to default pattern
         fillFrameBufferWithDefaultPattern();
-        ErrorOccurred = true;
-        break;
+        return;
       }
         
       // Increment frame index to input new data for new frame, if it does arrive
       ++CurrentFrameIndex;
       
       // Wait to see if more data arrives
-      delay(1000);
-    } while (SSerial.available() > 0);
+      delay(1);
+    } while (Serial.available() > 0);
 
-    if (!ErrorOccurred)
-    {
-      // Set new size of frame buffer
-      g_FrameBufferSize = CurrentFrameIndex * ONE_FRAME_SIZE;
+    Serial.println(F("OK: Receive complete."));
+    
+    // Set new size of frame buffer
+    g_FrameBufferSize = CurrentFrameIndex * ONE_FRAME_SIZE;
   
-      // Reset current frame index pointer to first frame
-      g_CurrentFrameIndex = 0;
-    }
+    // Reset current frame index pointer to first frame
+    g_CurrentFrameIndex = 0;
   }
   else
   {

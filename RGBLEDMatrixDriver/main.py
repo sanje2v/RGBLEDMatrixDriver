@@ -1,4 +1,5 @@
 import os
+import time
 import serial
 import serial.tools.list_ports
 import threading
@@ -61,25 +62,25 @@ class Application:
         # TEST ONLY
         FRAME_WRITE_OUT_INDEX = 0
         NUM_DEFAULT_FRAMES = 18
-        FRAMES = [0xFF]*(4 * 9 * 96)
+        FRAMES = [0xFF]*(12 * 96)
 
         # Add RED
-        for i in range(0, (9 * 96), 3):
+        for i in range(0, (6 * 96), 3):
             FRAMES[i+0] = 0x00  # Red
             FRAMES[i+1] = 0xFF  # Green
             FRAMES[i+2] = 0xFF  # Blue
 
         # Add GREEN
-        for i in range(0, (9 * 96), 3):
+        for i in range(0, (6 * 96), 3):
             FRAMES[i+0] = 0xFF  # Red
             FRAMES[i+1] = 0x00  # Green
             FRAMES[i+2] = 0xFF  # Blue
 
         # Add BLUE
-        for i in range(0, (9 * 96), 3):
-            FRAMES[i+0] = 0xFF  # Red
-            FRAMES[i+1] = 0xFF  # Green
-            FRAMES[i+2] = 0x00  # Blue
+        #for i in range(0, (6 * 96), 3):
+        #    FRAMES[i+0] = 0xFF  # Red
+        #    FRAMES[i+1] = 0xFF  # Green
+        #    FRAMES[i+2] = 0x00  # Blue
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
@@ -88,18 +89,30 @@ class Application:
             com_port.flushOutput()
             com_port.flushInput()
 
+            def getNextMessage(com_port):
+                return com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)\
+                               .decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)]
+
             while (not self.thread_worker_signal.isSet()):
                 if (com_port.in_waiting):
-                    message = deepcopy(com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)) # NOTE: We 'deepcopy()' 'cause another thread will be accessing this data
+                    message = deepcopy(getNextMessage(com_port)) # NOTE: We 'deepcopy()' 'cause another thread will be accessing this data
                     # NOTE: Tkinter textbox uses '\n' for newline regardless of OS
-                    message = message.decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)] + '\n'
-                    self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message))
+                    self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message + '\n'))
 
                     # See if it is 'COMPLETED' message which means we need to send next set
                     # of frames if all the frames don't in controller's memory.
                     if message == settings.CONTROLLER_LAST_FRAME_MESSAGE:
-                        com_port.write(bytearray(FRAMES[FRAME_WRITE_OUT_INDEX:(FRAME_WRITE_OUT_INDEX + (9 * 96 + 1)):])) # CAUTION: Don't forget '+ 1' here
-                        FRAME_WRITE_OUT_INDEX = (FRAME_WRITE_OUT_INDEX + (2 * 9 * 96)) % len(FRAMES)
+                        com_port.flushInput()
+
+                        #com_port.write(bytearray(FRAMES))
+                        for to_send in [FRAMES[i:i + 96] for i in range(0, len(FRAMES), 96)]:
+                            com_port.write(bytearray(to_send)) # CAUTION: Don't forget '+ 1' here
+                            
+                            message = deepcopy(getNextMessage(com_port))
+                            self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message + '\n'))
+                            while (not message.startswith('OK')):
+                                message = deepcopy(getNextMessage(com_port))
+                                self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message + '\n'))
 
         finally:
             if com_port.is_open:
