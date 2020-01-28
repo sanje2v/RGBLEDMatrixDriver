@@ -2,7 +2,7 @@ import os
 import serial
 import serial.tools.list_ports
 import threading
-from copy import copy
+from copy import deepcopy
 import pygubu
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -11,7 +11,7 @@ import settings
 
 
 class Application:
-    DISPATCHER_CHECK_PERIOD_MS = 200
+    DISPATCHER_QUEUE_CHECK_PERIOD_MS = 200
 
 
     def __init__(self, ports):
@@ -35,6 +35,9 @@ class Application:
         self.sbr_serialoutput.configure(command=self.txt_serialoutput.yview)
         self.txt_serialoutput.configure(yscrollcommand=self.sbr_serialoutput.set)
 
+        # 2. Make 'txt_serialoutput' text control readonly
+        self.txt_serialoutput.bind("<Key>", lambda e: "break")
+
         # Configure variables
         self.thread_worker = None
         self.thread_worker_signal = threading.Event()
@@ -48,14 +51,15 @@ class Application:
         # Select first COM port
         self.builder.get_variable('cmb_ports_selected').set(ports[0])
 
-        # Prepare dispatcher
+        # Prepare dispatcher which is used to dispatch work from worker thread to GUI thread
         self.gui_dispatcher_queue = []
-        self.mainwindow.after(self.DISPATCHER_CHECK_PERIOD_MS, self.gui_dispatcher)
+        self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
+                                                                 self.gui_dispatcher)
 
 
     def thread_worker_func(self, com_port):
         # TEST ONLY
-        LAST_FRAME_WRITE_OUT = 0
+        FRAME_WRITE_OUT_INDEX = 0
         NUM_DEFAULT_FRAMES = 18
         FRAMES = [0xFF]*(4 * 9 * 96)
 
@@ -67,15 +71,15 @@ class Application:
 
         # Add GREEN
         for i in range(0, (9 * 96), 3):
-            FRAMES[i+0] = 0xFF
+            FRAMES[i+0] = 0xFF  # Red
             FRAMES[i+1] = 0x00  # Green
-            FRAMES[i+2] = 0xFF
+            FRAMES[i+2] = 0xFF  # Blue
 
         # Add BLUE
         for i in range(0, (9 * 96), 3):
-            FRAMES[i+0] = 0xFF
+            FRAMES[i+0] = 0xFF  # Red
             FRAMES[i+1] = 0xFF  # Green
-            FRAMES[i+2] = 0x00
+            FRAMES[i+2] = 0x00  # Blue
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
@@ -86,18 +90,20 @@ class Application:
 
             while (not self.thread_worker_signal.isSet()):
                 if (com_port.in_waiting):
-                    message = com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES).decode('utf-8')
-                    self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, copy(message)))
+                    message = deepcopy(com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)) # NOTE: We 'deepcopy()' 'cause another thread will be accessing this data
+                    # NOTE: Tkinter textbox uses '\n' for newline regardless of OS
+                    message = message.decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)] + '\n'
+                    self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message))
 
                     # See if it is 'COMPLETED' message which means we need to send next set
                     # of frames if all the frames don't in controller's memory.
                     if message == settings.CONTROLLER_LAST_FRAME_MESSAGE:
-                        com_port.write(bytearray(FRAMES[LAST_FRAME_WRITE_OUT:(LAST_FRAME_WRITE_OUT + 2 * 9 * 96)]))
-
-                        LAST_FRAME_WRITE_OUT = (LAST_FRAME_WRITE_OUT + (2 * 9 * 96)) % len(FRAMES)
+                        com_port.write(bytearray(FRAMES[FRAME_WRITE_OUT_INDEX:(FRAME_WRITE_OUT_INDEX + (9 * 96 + 1)):])) # CAUTION: Don't forget '+ 1' here
+                        FRAME_WRITE_OUT_INDEX = (FRAME_WRITE_OUT_INDEX + (2 * 9 * 96)) % len(FRAMES)
 
         finally:
-            com_port.close()
+            if com_port.is_open:
+                com_port.close()
 
 
     def btn_connect_click(self):
@@ -119,13 +125,14 @@ class Application:
 
     def gui_dispatcher(self):
         while(self.gui_dispatcher_queue):
-            # Call the function in GUI thread
+            # Call the earliest function in the queue with GUI thread
             self.gui_dispatcher_queue.pop(0)()
 
-        self.mainwindow.after(self.DISPATCHER_CHECK_PERIOD_MS, self.gui_dispatcher)
+        self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS, self.gui_dispatcher)
 
 
     def quit(self, event=None):
+        self.mainwindow.after_cancel(self.dispatcher_queue_checker_id)
         self.mainwindow.destroy()
 
         if self.thread_worker:

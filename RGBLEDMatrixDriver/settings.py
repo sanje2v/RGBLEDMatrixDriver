@@ -9,6 +9,6 @@ CONTROLLER_COM_PORT_CONFIG = \
     'bytesize': serial.EIGHTBITS,
     'parity': serial.PARITY_NONE,
     'stopbits': serial.STOPBITS_ONE,
-    'timeout': 15.0,      # Read timeout in secs or None for never timeout
-    'write_timeout': 15.0  # In secs
+    'timeout': 5.0,      # Read timeout in secs or None for never timeout
+    'write_timeout': 5.0  # In secs
 }
