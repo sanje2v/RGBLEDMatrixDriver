@@ -152,7 +152,7 @@
               <property name="row">2</property>
             </layout>
             <child>
-              <object class="ttk.Label" id="txt_Status">
+              <object class="ttk.Label" id="txt_status">
                 <property name="text" translatable="yes">Please reset LED controller.</property>
                 <layout>
                   <property name="column">0</property>
