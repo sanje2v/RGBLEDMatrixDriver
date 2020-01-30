@@ -153,7 +153,9 @@
             </layout>
             <child>
               <object class="ttk.Label" id="txt_status">
-                <property name="text" translatable="yes">Please reset LED controller.</property>
+                <property name="compound">top</property>
+                <property name="cursor">arrow</property>
+                <property name="takefocus">false</property>
                 <layout>
                   <property name="column">0</property>
                   <property name="propagate">True</property>
