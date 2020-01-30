@@ -151,6 +151,16 @@
               <property name="propagate">True</property>
               <property name="row">2</property>
             </layout>
+            <child>
+              <object class="ttk.Label" id="txt_Status">
+                <property name="text" translatable="yes">Please reset LED controller.</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="propagate">True</property>
+                  <property name="row">0</property>
+                </layout>
+              </object>
+            </child>
           </object>
         </child>
       </object>

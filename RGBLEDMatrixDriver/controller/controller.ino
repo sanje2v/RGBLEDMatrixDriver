@@ -191,7 +191,7 @@ void loop()
       ++CurrentFrameIndex;
       
       // Wait to see if more data arrives
-      delay(1);
+      delay(100);
     } while (Serial.available() > 0);
 
     Serial.println(F("OK: Receive complete."));

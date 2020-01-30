@@ -30,6 +30,7 @@ class Application:
         self.btn_connect = builder.get_object('btn_connect')
         self.txt_serialoutput = builder.get_object('txt_serialoutput')
         self.sbr_serialoutput = builder.get_object('sbr_serialoutput')
+        self.txt_status = builder.get_object('txt_status')
 
         # Set up controls
         # 1. Wireup scrollbar
@@ -59,60 +60,73 @@ class Application:
 
 
     def thread_worker_func(self, com_port):
+        # Utility function
+        def getNextMessageAndWriteOut(com_port, gui_dispatcher_queue, txt_serialoutput):
+            # NOTE: We 'deepcopy()' here 'cause another thread will be accessing this data later
+            message = deepcopy(com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)\
+                                       .decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)])
+            # We push serial data from controller to a queue which will be accessed by GUI thread later to
+            # write text safely to GUI text control.
+            # NOTE: Tkinter textbox uses '\n' for newline regardless of OS
+            gui_dispatcher_queue.append(lambda: txt_serialoutput.insert(tk.END, message + '\n'))
+
+            return message
+
         # TEST ONLY
         FRAME_WRITE_OUT_INDEX = 0
-        NUM_DEFAULT_FRAMES = 18
-        FRAMES = [0xFF]*(12 * 96)
+        NUM_DEFAULT_FRAMES = 12
+        ONE_FRAME_SIZE = 96
+        FRAMES = [0xFF]*(12 * ONE_FRAME_SIZE)
 
         # Add RED
-        for i in range(0, (6 * 96), 3):
+        for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * ONE_FRAME_SIZE), 3):
             FRAMES[i+0] = 0x00  # Red
             FRAMES[i+1] = 0xFF  # Green
             FRAMES[i+2] = 0xFF  # Blue
 
         # Add GREEN
-        for i in range(0, (6 * 96), 3):
+        for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * ONE_FRAME_SIZE), 3):
             FRAMES[i+0] = 0xFF  # Red
             FRAMES[i+1] = 0x00  # Green
             FRAMES[i+2] = 0xFF  # Blue
 
+        assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
+
         # Add BLUE
-        #for i in range(0, (6 * 96), 3):
+        #for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * 96), 3):
         #    FRAMES[i+0] = 0xFF  # Red
         #    FRAMES[i+1] = 0xFF  # Green
         #    FRAMES[i+2] = 0x00  # Blue
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
-        # 2. If 'COMPLETED\r\n' message is received from slave, next set of frames are written out.
+        # 2. If 'COMPLETED' message is received from slave, next set of frames are written out.
         try:
             com_port.flushOutput()
             com_port.flushInput()
 
-            def getNextMessage(com_port):
-                return com_port.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)\
-                               .decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)]
-
+            isControllerInitialized = False
             while (not self.thread_worker_signal.isSet()):
                 if (com_port.in_waiting):
-                    message = deepcopy(getNextMessage(com_port)) # NOTE: We 'deepcopy()' 'cause another thread will be accessing this data
-                    # NOTE: Tkinter textbox uses '\n' for newline regardless of OS
-                    self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message + '\n'))
+                    message = getNextMessageAndWriteOut(com_port)
 
-                    # See if it is 'COMPLETED' message which means we need to send next set
-                    # of frames if all the frames don't in controller's memory.
-                    if message == settings.CONTROLLER_LAST_FRAME_MESSAGE:
-                        com_port.flushInput()
+                    if not isControllerInitialized and message == settings.CONTROLLER_INITIALIZED_MESSAGE:
+                        # LED controller is not initialized
+                        isControllerInitialized = True
 
-                        #com_port.write(bytearray(FRAMES))
-                        for to_send in [FRAMES[i:i + 96] for i in range(0, len(FRAMES), 96)]:
-                            com_port.write(bytearray(to_send)) # CAUTION: Don't forget '+ 1' here
+                        self.gui_dispatcher_queue.append(lambda: self.txt_status.configure(text="Controller initialized. Ready."))
+                    else:
+                        # See if it is 'COMPLETED' message which means we need to send next set
+                        # of frames if all the frames don't in controller's memory.
+                        if message == settings.CONTROLLER_LAST_FRAME_MESSAGE:
+                            for to_send in [FRAMES[i:(i + ONE_FRAME_SIZE)] for i in range(0, len(FRAMES), ONE_FRAME_SIZE)]:
+                                assert len(to_send) == ONE_FRAME_SIZE
+                                com_port.write(bytearray(to_send))
                             
-                            message = deepcopy(getNextMessage(com_port))
-                            self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message + '\n'))
-                            while (not message.startswith('OK')):
-                                message = deepcopy(getNextMessage(com_port))
-                                self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message + '\n'))
+                                while (True):
+                                    message = getNextMessageAndWriteOut(com_port)
+                                    if message.startswith('OK'):
+                                        break
 
         finally:
             if com_port.is_open:
