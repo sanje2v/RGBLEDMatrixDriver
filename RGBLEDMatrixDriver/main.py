@@ -105,6 +105,10 @@ class Application:
             com_port.flushOutput()
             com_port.flushInput()
 
+            # Ask controller to reset
+            com_port.write(bytearray('RESET\r\n'))
+            time.sleep(1000)    # Allow controller to reset
+
             isControllerInitialized = False
             while (not self.thread_worker_signal.isSet()):
                 if (com_port.in_waiting):

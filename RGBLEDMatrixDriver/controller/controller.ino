@@ -4,6 +4,7 @@
  * Written by: Sanjeev Sharma. Copyright 2020.
  */
 
+#include<avr/wdt.h>
 #include <SPI.h>
 
 // SETTINGS
@@ -11,6 +12,7 @@
 #define LED_ROW_OFF                                     (byte)0xFF    // NOTE: This is valid for EP-005 LED matrix
 #define LED_ROW_ALTERNATE_ON                            (byte)0xAA    // NOTE: This is valid for EP-005 LED matrix
 #define SERIAL_SPEED_BPS                                115200
+#define RESET_COMMAND                                   "RESET\r\n"
 #define NUM_LED_MATRICES                                4
 #define NUM_ROWS_PER_MATRIX                             8
 #define NUM_COLORS_PER_ROW_DOT                          3
@@ -175,9 +177,22 @@ void loop()
       }
       
       // Read a frame of data
-      size_t bytesRead = Serial.readBytes(&g_pFrameBuffer[CurrentFrameIndex * ONE_FRAME_SIZE], ONE_FRAME_SIZE);
+      byte *pBuffer = &g_pFrameBuffer[CurrentFrameIndex * ONE_FRAME_SIZE];
+      size_t bytesRead = Serial.readBytes(pBuffer, ONE_FRAME_SIZE);
       if (bytesRead == ONE_FRAME_SIZE)
+      {
         Serial.println(F("OK: Received a good frame."));
+      }
+      else if (bytesRead == strlen(RESET_COMMAND) && 
+               strncmp((const char *)pBuffer, RESET_COMMAND, strlen(RESET_COMMAND)) == 0)
+      {
+        // Host has asked us to reset
+        Serial.println(F("OK: Resetting."));
+
+        // NOTE: We use watchdog timer to reset the system
+        wdt_enable(WDTO_15MS);
+        while (true) {} // Let the watchdog timer fire
+      }
       else
       {
         Serial.println(F("ERROR: Incorrect sized frame received!"));
