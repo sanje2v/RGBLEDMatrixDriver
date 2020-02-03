@@ -13,6 +13,7 @@ import settings
 
 class Application:
     DISPATCHER_QUEUE_CHECK_PERIOD_MS = 200
+    CONTROLLER_RESET_COMMAND = 'RESET\r\n'
 
 
     def __init__(self, ports):
@@ -31,6 +32,7 @@ class Application:
         self.txt_serialoutput = builder.get_object('txt_serialoutput')
         self.sbr_serialoutput = builder.get_object('sbr_serialoutput')
         self.txt_status = builder.get_object('txt_status')
+        self.btn_reset = builder.get_object('btn_reset')
 
         # Set up controls
         # 1. Wireup scrollbar
@@ -55,6 +57,7 @@ class Application:
 
         # Prepare dispatcher which is used to dispatch work from worker thread to GUI thread
         self.gui_dispatcher_queue = []
+        self.worker_dispatcher_queue = []
         self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
                                                                  self.gui_dispatcher)
 
@@ -72,45 +75,53 @@ class Application:
 
             return message
 
+        def writeToController(com_port, data):
+            while (com_port.out_waiting > 0):
+                pass
+
+            com_port.write(data)
+
         # TEST ONLY
         FRAME_WRITE_OUT_INDEX = 0
         NUM_DEFAULT_FRAMES = 12
         ONE_FRAME_SIZE = 96
-        FRAMES = [0xFF]*(12 * ONE_FRAME_SIZE)
+        FRAMES = [b'\xFF']*(12 * ONE_FRAME_SIZE)
 
         # Add RED
         for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * ONE_FRAME_SIZE), 3):
-            FRAMES[i+0] = 0x00  # Red
-            FRAMES[i+1] = 0xFF  # Green
-            FRAMES[i+2] = 0xFF  # Blue
+            FRAMES[i+0] = b'\x00'  # Red
+            FRAMES[i+1] = b'\xFF'  # Green
+            FRAMES[i+2] = b'\xFF'  # Blue
 
         # Add GREEN
         for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * ONE_FRAME_SIZE), 3):
-            FRAMES[i+0] = 0xFF  # Red
-            FRAMES[i+1] = 0x00  # Green
-            FRAMES[i+2] = 0xFF  # Blue
-
-        assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
+            FRAMES[i+0] = b'\xFF'  # Red
+            FRAMES[i+1] = b'\x00'  # Green
+            FRAMES[i+2] = b'\xFF'  # Blue
 
         # Add BLUE
         #for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * 96), 3):
-        #    FRAMES[i+0] = 0xFF  # Red
-        #    FRAMES[i+1] = 0xFF  # Green
-        #    FRAMES[i+2] = 0x00  # Blue
+        #    FRAMES[i+0] = b'\xFF'  # Red
+        #    FRAMES[i+1] = b'\xFF'  # Green
+        #    FRAMES[i+2] = b'\x00'  # Blue
+
+        assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
         # 2. If 'COMPLETED' message is received from slave, next set of frames are written out.
         try:
-            com_port.flushOutput()
-            com_port.flushInput()
+            com_port.reset_input_buffer()
+            com_port.reset_output_buffer()
 
             # Ask controller to reset
-            com_port.write(bytearray('RESET\r\n', 'utf-8'))
-            time.sleep(2)    # Allow controller to reset
+            writeToController(com_port, bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8'))
 
             isControllerInitialized = False
             while (not self.thread_worker_signal.isSet()):
+                while (self.worker_dispatcher_queue):
+                    self.worker_dispatcher_queue.pop(0)(com_port)
+
                 if (com_port.in_waiting):
                     message = getNextMessageAndWriteOut(com_port, self.gui_dispatcher_queue, self.txt_serialoutput)
 
@@ -119,22 +130,29 @@ class Application:
                         isControllerInitialized = True
 
                         self.gui_dispatcher_queue.append(lambda: self.txt_status.configure(text="Controller initialized. Ready."))
-                    else:
+                    
+                    elif isControllerInitialized:
                         # See if it is 'COMPLETED' message which means we need to send next set
                         # of frames if all the frames don't in controller's memory.
                         if message == settings.CONTROLLER_LAST_FRAME_MESSAGE:
                             for to_send in [FRAMES[i:(i + ONE_FRAME_SIZE)] for i in range(0, len(FRAMES), ONE_FRAME_SIZE)]:
+                                to_send = b''.join(to_send)
                                 assert len(to_send) == ONE_FRAME_SIZE
-                                com_port.write(bytearray(to_send))
+                                writeToController(com_port, to_send)
                             
+                                hasErrorOccurred = False
                                 while (True):
                                     message = getNextMessageAndWriteOut(com_port, self.gui_dispatcher_queue, self.txt_serialoutput)
                                     if message.startswith('OK'):
                                         break
                                     elif message.startswith('ERROR'):
                                         self.gui_dispatcher_queue.append(lambda: self.txt_status.configure(text="Error occurred!"))
+                                        isControllerInitialized = False
+                                        hasErrorOccurred = True
                                         break
 
+                                if hasErrorOccurred:
+                                    break
         finally:
             if com_port.is_open:
                 com_port.close()
@@ -142,6 +160,7 @@ class Application:
 
     def btn_connect_click(self):
         self.btn_connect.configure(state='disabled')
+        self.btn_reset.configure(state='normal')
 
         try:
             # Dispatch COM port name for worker thread to communicate
@@ -151,10 +170,13 @@ class Application:
                                                   args=(serial.Serial(port=selected_com_port, **settings.CONTROLLER_COM_PORT_CONFIG),))
             self.thread_worker.start()
 
-
         except Exception as ex:
             messagebox.showerror("Error opening port", str(ex))
             self.btn_connect.configure(state='normal')
+
+
+    def btn_reset_click(self):
+        self.worker_dispatcher_queue.append(lambda com_port: com_port.write(bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8')))
 
 
     def gui_dispatcher(self):
@@ -171,7 +193,7 @@ class Application:
 
         if self.thread_worker:
             self.thread_worker_signal.set()
-            self.thread_worker.join()
+            self.thread_worker.join(2.0)
 
 
     def run(self):

@@ -6,10 +6,10 @@ CONTROLLER_INITIALIZED_MESSAGE = 'INITIALIZED'
 CONTROLLER_LAST_FRAME_MESSAGE = 'COMPLETED'
 CONTROLLER_COM_PORT_CONFIG = \
 {
-    'baudrate': 115200,
+    'baudrate': 57600,
     'bytesize': serial.EIGHTBITS,
     'parity': serial.PARITY_NONE,
     'stopbits': serial.STOPBITS_ONE,
-    'timeout': 1.0,      # Read timeout in secs or None for never timeout
-    'write_timeout': 1.0  # In secs
+    'timeout': None,      # Read timeout in secs or None for never timeout
+    'write_timeout': None  # In secs
 }
