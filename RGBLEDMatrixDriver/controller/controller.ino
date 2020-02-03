@@ -15,16 +15,17 @@
 #define SYNC_BITS_PER_SERIAL_FRAME    2   // 1 Start and 1 stop bit
 #define SERIAL_FRAME_SIZE             (BITS_PER_BYTE + SYNC_BITS_PER_SERIAL_FRAME)
 #define MILLIS_PER_SECOND             1000
-#define MILLIS_REQUIRED_PER_FRAME     ((BITS_PER_BYTE * ONE_FRAME_SIZE * MILLIS_PER_SECOND)/SERIAL_SPEED_BPS)
+#define MILLIS_REQUIRED_PER_FRAME     ((BITS_PER_BYTE * ONE_FRAME_SIZE * uint32_t(MILLIS_PER_SECOND))/SERIAL_SPEED_BPS)
 #define EXTRA_MILLIS_PADDING          5
 
-static const int CONTROLLER_SELECT_PINS[NUM_LED_MATRICES] = SLAVE_SELECT_PINS;
+static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = SLAVE_SELECT_PINS;
 
 // Global allocation
+static char g_pStringBuffer[128];
 static byte g_pFrameBuffer[MAX_FRAME_BUFFER_SIZE];
 static int g_FrameBufferSize;
 static uint8_t g_CurrentFrameIndex;
-static SoftwareSerial SSerial(2, 3); // RX, TX
+static SoftwareSerial SSerial(2, 3); // pins in order of (RX, TX)
 
 
 void fillFrameBufferWithDefaultPattern()
@@ -106,18 +107,18 @@ void setup()
   // Initialize SPI for controlling LEDs and Serial for communicating with master
   SPI.begin();
   SSerial.begin(SERIAL_SPEED_BPS);
-  SSerial.setTimeout(1500);
-
+  SSerial.setTimeout(1000);
+  
   // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
   for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
   {
-    pinMode(CONTROLLER_SELECT_PINS[i], OUTPUT);
-    digitalWrite(CONTROLLER_SELECT_PINS[i], HIGH);
+    pinMode(LEDMATRIX_SELECT_PINS[i], OUTPUT);
+    digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH);
   }
-
+  
   // Fill default pattern for frame buffer
   fillFrameBufferWithDefaultPattern();
-
+  
   // Notify host that this LED controller has been initialized
   SSerial.println(F("INITIALIZED"));
 }
@@ -127,13 +128,13 @@ void loop()
   // If this is the last frame, notify host
   // NOTE: This hint can allow the host to send next set of frames.
   if ((g_CurrentFrameIndex + 1) == uint8_t(g_FrameBufferSize / ONE_FRAME_SIZE))
-  {
     SSerial.println(F("COMPLETED"));
-  }
   
   // Draw current frame
   // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
-  //unsigned long start_time = millis();
+  #ifdef PRINT_MILLIS_PER_FRAME
+  unsigned long start_time = millis();
+  #endif
   
   for (uint8_t t = 0; t < NUM_REDRAW_EACH_FRAME; ++t)
   {
@@ -143,7 +144,7 @@ void loop()
                                                         (i * ONE_MATRIX_FRAME_SIZE)];
       for (uint8_t j = 0; j < NUM_ROWS_PER_MATRIX; ++j)
       {
-        digitalWrite(CONTROLLER_SELECT_PINS[i], LOW);  // Select a slave LED matrix
+        digitalWrite(LEDMATRIX_SELECT_PINS[i], LOW);  // Select a slave LED matrix
 
         for (uint8_t k = 0; k < NUM_COLORS_PER_ROW_DOT; ++k)
         {
@@ -151,23 +152,26 @@ void loop()
         }
         SPI.transfer(0x01 << j);  // Send row index for current LED matrix
 
-        digitalWrite(CONTROLLER_SELECT_PINS[i], HIGH); // Deselect the selected LED matrix
+        digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH); // Deselect the selected LED matrix
       }
       
       // Explicitly need to turn off the last row of LEDs in the matrix
       // before displaying next frame so that unwanted lingering previous
       // data for last row does not remain.
-      digitalWrite(CONTROLLER_SELECT_PINS[i], LOW);
+      digitalWrite(LEDMATRIX_SELECT_PINS[i], LOW);
       for (uint8_t k = 0; k < NUM_COLORS_PER_ROW_DOT; ++k)
       {
         SPI.transfer(LED_ROW_OFF);
       }
       SPI.transfer(0x01 << (NUM_ROWS_PER_MATRIX - 1));
-      digitalWrite(CONTROLLER_SELECT_PINS[i], HIGH);
+      digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH);
     }
   }
-
-  //Serial.println(millis() - start_time);
+  
+  #ifdef PRINT_MILLIS_PER_FRAME
+  sprintf_P(g_pStringBuffer, (PGM_P)F("INFO: 1 frame took %i ms."), (millis() - start_time));
+  SSerial.println(g_pStringBuffer);
+  #endif
   
   // Check if there is data available in Serial port from host
   if (SSerial.available() > 0)
@@ -203,8 +207,11 @@ void loop()
       else
       {
         ClearSerialReceiveBuffer();
-        SSerial.println(F("ERROR: Incorrect sized frame received!"));
-        SSerial.println((int)bytesRead);
+        sprintf_P(g_pStringBuffer,
+                  (PGM_P)F("ERROR: Incorrect sized frame received! Expected %i but got %i bytes instead."),
+                  (int)bytesRead,
+                  (int)ONE_FRAME_SIZE);
+        SSerial.println(g_pStringBuffer);
         
         // We revert to default pattern
         fillFrameBufferWithDefaultPattern();
