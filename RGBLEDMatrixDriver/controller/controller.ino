@@ -12,11 +12,10 @@
 
 // Constants
 #define BITS_PER_BYTE                 8
-#define SYNC_BITS_PER_SERIAL_FRAME    2   // 1 Start and 1 stop bit
+#define SYNC_BITS_PER_SERIAL_FRAME    2   // 1 start and 1 stop bit
 #define SERIAL_FRAME_SIZE             (BITS_PER_BYTE + SYNC_BITS_PER_SERIAL_FRAME)
 #define MILLIS_PER_SECOND             1000
-#define MILLIS_REQUIRED_PER_FRAME     ((BITS_PER_BYTE * ONE_FRAME_SIZE * uint32_t(MILLIS_PER_SECOND))/SERIAL_SPEED_BPS)
-#define EXTRA_MILLIS_PADDING          5
+#define MILLIS_REQUIRED_PER_FRAME     ((SERIAL_FRAME_SIZE * ONE_FRAME_SIZE * uint32_t(MILLIS_PER_SECOND))/SERIAL_SPEED_BPS)
 
 static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = SLAVE_SELECT_PINS;
 
@@ -95,8 +94,8 @@ void fillFrameBufferWithDefaultPattern()
 
 void ClearSerialReceiveBuffer()
 {
-  while (SSerial.available() > 0)
-    SSerial.read();
+  while (SSerial.available())
+    SSerial.read();   // Read and drop bytes in RX buffer
 }
 
 void setup()
@@ -107,7 +106,7 @@ void setup()
   // Initialize SPI for controlling LEDs and Serial for communicating with master
   SPI.begin();
   SSerial.begin(SERIAL_SPEED_BPS);
-  SSerial.setTimeout(1000);
+  SSerial.setTimeout(200);
   
   // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
   for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
@@ -174,7 +173,7 @@ void loop()
   #endif
   
   // Check if there is data available in Serial port from host
-  if (SSerial.available() > 0)
+  if (SSerial.available())
   {
     uint8_t CurrentFrameIndex = 0;
     
@@ -198,7 +197,7 @@ void loop()
           strncmp((const char *)pBuffer, RESET_COMMAND, strlen(RESET_COMMAND)) == 0)
       {
         // Host has asked us to reset
-        SSerial.println(F("OK: Resetting."));
+        SSerial.println(F("INFO: Resetting..."));
         
         // NOTE: We use watchdog timer to reset the system
         wdt_enable(WDTO_15MS);
@@ -222,10 +221,10 @@ void loop()
       ++CurrentFrameIndex;
       
       // Wait to see if more data arrives
-      delay(MILLIS_REQUIRED_PER_FRAME + EXTRA_MILLIS_PADDING);
-    } while (SSerial.available() > 0);
+      delay(MILLIS_REQUIRED_PER_FRAME);
+    } while (SSerial.available());
 
-    SSerial.println(F("DONE: Receive complete."));
+    SSerial.println(F("INFO: Receive complete."));
     
     // Set new size of frame buffer
     g_FrameBufferSize = CurrentFrameIndex * ONE_FRAME_SIZE;
