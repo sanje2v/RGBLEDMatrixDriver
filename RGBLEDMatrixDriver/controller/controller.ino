@@ -10,12 +10,7 @@
 #include <SPI.h>
 
 
-// Constants
-#define BITS_PER_BYTE                 8
-#define SYNC_BITS_PER_SERIAL_FRAME    2   // 1 start and 1 stop bit
-#define SERIAL_FRAME_SIZE             (BITS_PER_BYTE + SYNC_BITS_PER_SERIAL_FRAME)
-#define MILLIS_PER_SECOND             1000
-#define MILLIS_REQUIRED_PER_FRAME     ((SERIAL_FRAME_SIZE * ONE_FRAME_SIZE * uint32_t(MILLIS_PER_SECOND))/SERIAL_SPEED_BPS)
+#define NOP __asm__ __volatile__ ("nop\n\t")
 
 static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = SLAVE_SELECT_PINS;
 
@@ -23,6 +18,7 @@ static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = SLAVE_SELECT_PINS;
 static char g_pStringBuffer[128];
 static byte g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE];
 static uint8_t g_CurrentFrameIndex;
+static byte *g_pNextFrameBufferWritePos;
 static SoftwareSerial SSerial(2, 3); // pins in order of (RX, TX)
 
 
@@ -99,7 +95,7 @@ void EnableSerialIncomingDataTimer()
   TCCR1B = 0;
   TCNT1  = 0;
   
-  OCR1A = 1562;             // compare match register for 25 milliseconds
+  OCR1A = 3500;             // compare match register for 25 milliseconds
   TCCR1B |= (1 << WGM12);   // CTC mode
   TCCR1B |= (1 << CS12);    // 256 prescaler 
   TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
@@ -111,20 +107,32 @@ void DisableSerialIncomingDataTimer()
   TCCR1B = 0;                 // disable timer1
 }
 
-/*ISR(TIMER1_COMPA_vect)      // timer compare interrupt service routine
+ISR(TIMER1_COMPA_vect)      // timer compare interrupt service routine
 {
   if (SSerial.available())
   {
-    DisableSerialIncomingDataTimer();
+    byte * const pStartNextMatrixFrameBuffer = g_pNextFrameBufferWritePos;
     
-    uint8_t NextFrameIndex = (g_CurrentFrameIndex + (TOTAL_FRAMES/2) + 1) % TOTAL_FRAMES;
-    byte * const pStartNextMatrixFrameBuffer = &g_pFrameBuffer[NextFrameIndex * ONE_FRAME_SIZE];
-    byte *pNextMatrixFrameBufferPos = pStartNextMatrixFrameBuffer;
+    int readBuffer;
+    uint8_t bytesRead = 0;
+    while (readBuffer = SSerial.read(), readBuffer > 0)
+    {
+      *g_pNextFrameBufferWritePos = (byte)readBuffer;
+      if (g_pNextFrameBufferWritePos == &g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE - 1])
+      {
+        //SSerial.println("Rollover");
+        g_pNextFrameBufferWritePos = &g_pFrameBuffer[0];
+      }
+      else
+        ++g_pNextFrameBufferWritePos;
+      
+      ++bytesRead;
+    }
 
-    size_t bytesRead = SSerial.readBytes(pNextMatrixFrameBufferPos, RESET_COMMAND_SIZE);
+    //SSerial.println(bytesRead);
     
     // Check if host is asking us to reset
-    if (bytesRead == RESET_COMMAND_SIZE &&
+    /*if (bytesRead == RESET_COMMAND_SIZE &&
         strncmp((const char *)pStartNextMatrixFrameBuffer, RESET_COMMAND, RESET_COMMAND_SIZE) == 0)
     {
       // TODO: More logic needed here to make sure RESET command was sent by host.
@@ -136,26 +144,12 @@ void DisableSerialIncomingDataTimer()
       wdt_enable(WDTO_15MS);
       while (true) {} // Let the watchdog timer fire
     }
-    
-    // It was NOT a reset command and IS a frame buffer data, so continue to read
-    // the rest of the frame data.
-    int buffer;
-    
-    
-    for (uint8_t i = RESET_COMMAND_SIZE; i < ONE_FRAME_SIZE; ++i)
-    {
-      while (buffer = SSerial.read(), buffer >= 0)
-      {
-        *pNextMatrixFrameBufferPos = (byte)buffer;
-        ++pNextMatrixFrameBufferPos;
-      }
-    }
-    
-    SSerial.println(F("OK: Received a frame."));
-  }
-}*/
 
-ISR(TIMER1_COMPA_vect)      // timer compare interrupt service routine
+    SSerial.println(bytesRead);*/
+  }
+}
+
+/*ISR(TIMER1_COMPA_vect)      // timer compare interrupt service routine
 {
   if (SSerial.available())
   {
@@ -198,7 +192,7 @@ ISR(TIMER1_COMPA_vect)      // timer compare interrupt service routine
     
     SSerial.println(F("OK: Received a frame."));
   }
-}
+}*/
 
 void setup()
 {
@@ -219,6 +213,11 @@ void setup()
   
   // Fill default pattern for frame buffer
   fillFrameBufferWithDefaultPattern();
+
+  // Set position of next write buffer
+  g_pNextFrameBufferWritePos = &g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE - ONE_FRAME_SIZE];
+
+  EnableSerialIncomingDataTimer();
   
   // Notify host that this LED controller has been initialized
   SSerial.println(F("INITIALIZED"));
@@ -232,7 +231,7 @@ void loop()
     SSerial.println(F("SYNC"));
   
   // Draw current frame
-  EnableSerialIncomingDataTimer();
+  
   
   // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
   #ifdef PRINT_MILLIS_PER_FRAME
@@ -276,8 +275,8 @@ void loop()
   SSerial.println(g_pStringBuffer);
   #endif
   
-  DisableSerialIncomingDataTimer();
-  
+  //noInterrupts();
   // Increment current frame index pointer
   g_CurrentFrameIndex = (g_CurrentFrameIndex + 1) % TOTAL_FRAMES;
+  //interrupts();
 }
