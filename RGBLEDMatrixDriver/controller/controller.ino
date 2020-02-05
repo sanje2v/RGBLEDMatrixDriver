@@ -21,18 +21,16 @@ static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = SLAVE_SELECT_PINS;
 
 // Global allocation
 static char g_pStringBuffer[128];
-static byte g_pFrameBuffer[MAX_FRAME_BUFFER_SIZE];
-static int g_FrameBufferSize;
+static byte g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE];
 static uint8_t g_CurrentFrameIndex;
+static byte *g_pNextFrameBufferWritePos;
 static SoftwareSerial SSerial(2, 3); // pins in order of (RX, TX)
 
 
 void fillFrameBufferWithDefaultPattern()
 {
-  const uint8_t NUM_DEFAULT_FRAMES = 12;  // CAUTION: This value should not exceed 'MAX_FRAMES'
-
   byte rowStates[ONE_FRAME_SIZE];
-  for (uint8_t i = 0; i < NUM_DEFAULT_FRAMES; ++i)
+  for (uint8_t i = 0; i < TOTAL_FRAMES; ++i)
   {
     /*if (i % 3 == 0)
     {
@@ -71,7 +69,7 @@ void fillFrameBufferWithDefaultPattern()
         for (uint8_t l = 0; l < NUM_COLORS_PER_ROW_DOT; ++l)
         {
           byte rowState;
-          if (i < (NUM_DEFAULT_FRAMES/2))
+          if (i < (TOTAL_FRAMES/2))
           {
             rowState = (l == 1 ? 0x00 : 0xFF);
           }
@@ -84,9 +82,6 @@ void fillFrameBufferWithDefaultPattern()
       }
     }
   }
-  
-  // Set size of frame buffer for default pattern
-  g_FrameBufferSize = NUM_DEFAULT_FRAMES * ONE_FRAME_SIZE;
   
   // Point to first frame
   g_CurrentFrameIndex = 0;
@@ -117,17 +112,46 @@ void setup()
   
   // Fill default pattern for frame buffer
   fillFrameBufferWithDefaultPattern();
+
+  // Set position of next write buffer
+  g_pNextFrameBufferWritePos = &g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE - ONE_FRAME_SIZE];
   
   // Notify host that this LED controller has been initialized
   SSerial.println(F("INITIALIZED"));
+}
+
+void ReadSerialWriteToFrameBuffer()
+{
+  if (SSerial.available())
+  {
+    byte * const pStartNextMatrixFrameBuffer = g_pNextFrameBufferWritePos;
+    
+    int readBuffer;
+    uint8_t bytesRead = 0;
+    while (readBuffer = SSerial.read(), readBuffer > 0)
+    {
+      *g_pNextFrameBufferWritePos = (byte)readBuffer;
+      if (g_pNextFrameBufferWritePos == &g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE - 1])
+      {
+        //SSerial.println("Rollover");
+        g_pNextFrameBufferWritePos = &g_pFrameBuffer[0];
+      }
+      else
+        ++g_pNextFrameBufferWritePos;
+      
+      ++bytesRead;
+    }
+  }
 }
 
 void loop()
 {
   // If this is the last frame, notify host
   // NOTE: This hint can allow the host to send next set of frames.
-  if ((g_CurrentFrameIndex + 1) == uint8_t(g_FrameBufferSize / ONE_FRAME_SIZE))
+  if ((g_CurrentFrameIndex + 1) == TOTAL_FRAMES)
     SSerial.println(F("COMPLETED"));
+
+  ReadSerialWriteToFrameBuffer();
   
   // Draw current frame
   // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
@@ -173,68 +197,8 @@ void loop()
   #endif
   
   // Check if there is data available in Serial port from host
-  if (SSerial.available())
-  {
-    uint8_t CurrentFrameIndex = 0;
-    
-    do
-    {
-      // Check if max frame memory has exceeded
-      if (CurrentFrameIndex == MAX_FRAMES)
-      {
-        SSerial.println(F("ERROR: Too many frames given!"));
-        CurrentFrameIndex = 0;
-      }
-      
-      // Read a frame of data
-      byte *pBuffer = &g_pFrameBuffer[CurrentFrameIndex * ONE_FRAME_SIZE];
-      size_t bytesRead = SSerial.readBytes(pBuffer, ONE_FRAME_SIZE);
-      if (bytesRead == ONE_FRAME_SIZE)
-      {
-        SSerial.println(F("OK: Received a good frame."));
-      }
-      else if (bytesRead == strlen(RESET_COMMAND) && 
-          strncmp((const char *)pBuffer, RESET_COMMAND, strlen(RESET_COMMAND)) == 0)
-      {
-        // Host has asked us to reset
-        SSerial.println(F("INFO: Resetting..."));
-        
-        // NOTE: We use watchdog timer to reset the system
-        wdt_enable(WDTO_15MS);
-        while (true) {} // Let the watchdog timer fire
-      }
-      else
-      {
-        ClearSerialReceiveBuffer();
-        sprintf_P(g_pStringBuffer,
-                  (PGM_P)F("ERROR: Incorrect sized frame received! Expected %i but got %i bytes instead."),
-                  (int)bytesRead,
-                  (int)ONE_FRAME_SIZE);
-        SSerial.println(g_pStringBuffer);
-        
-        // We revert to default pattern
-        fillFrameBufferWithDefaultPattern();
-        return;
-      }
-      
-      // Increment frame index to input new data for new frame, if it does arrive
-      ++CurrentFrameIndex;
-      
-      // Wait to see if more data arrives
-      delay(MILLIS_REQUIRED_PER_FRAME);
-    } while (SSerial.available());
-
-    SSerial.println(F("INFO: Receive complete."));
-    
-    // Set new size of frame buffer
-    g_FrameBufferSize = CurrentFrameIndex * ONE_FRAME_SIZE;
+  ReadSerialWriteToFrameBuffer();
   
-    // Reset current frame index pointer to first frame
-    g_CurrentFrameIndex = 0;
-  }
-  else
-  {
-    // Increment current frame index pointer
-    g_CurrentFrameIndex = (g_CurrentFrameIndex + 1) % int(g_FrameBufferSize / ONE_FRAME_SIZE);
-  }
+  // Increment current frame index pointer
+  g_CurrentFrameIndex = (g_CurrentFrameIndex + 1) % TOTAL_FRAMES;
 }
