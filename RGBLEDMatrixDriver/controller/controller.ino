@@ -17,8 +17,10 @@ static const uint8_t LED_MATRIX_SELECT_PINS[NUM_LED_MATRICES] = _LED_MATRIX_SELE
 
 // Global allocation
 static char g_pStringBuffer[128];
-static byte g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE];
-static uint8_t g_CurrentFrameIndex;
+static byte g_pFrameBuffer1[TOTAL_FRAME_BUFFER_SIZE/2];
+static byte g_pFrameBuffer2[TOTAL_FRAME_BUFFER_SIZE/2];
+static byte *g_pReadFrameBuffer, *g_pWriteFrameBuffer;
+static uint8_t g_CurrentReadFrameIndex, g_CurrentWriteFrameIndex;
 static SoftwareSerial SSerial(2, 3); // pins in order of (RX, TX)
 
 
@@ -57,7 +59,7 @@ void fillFrameBufferWithDefaultPattern()
     
     for (uint8_t j = 0; j < NUM_LED_MATRICES; ++j)
     {
-      byte *pCurrentMatrixFrameBuffer = &g_pFrameBuffer[(i * ONE_FRAME_SIZE) + (j * ONE_MATRIX_FRAME_SIZE)];
+      byte *pCurrentMatrixFrameBuffer = &g_pReadFrameBuffer[(i * ONE_FRAME_SIZE) + (j * ONE_MATRIX_FRAME_SIZE)];
       
       for (uint8_t k = 0; k < NUM_ROWS_PER_MATRIX; ++k)
       {
@@ -104,6 +106,10 @@ void setup()
     pinMode(LED_MATRIX_SELECT_PINS[i], OUTPUT);
     digitalWrite(LED_MATRIX_SELECT_PINS[i], HIGH);
   }
+
+  // Configure read and write frame buffer pointers
+  g_pReadFrameBuffer = g_pFrameBuffer1;
+  g_pWriteFrameBuffer = g_pFrameBuffer2;
   
   // Fill default pattern for frame buffer
   fillFrameBufferWithDefaultPattern();
