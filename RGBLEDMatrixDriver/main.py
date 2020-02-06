@@ -141,22 +141,23 @@ class Application:
                                     assert len(to_send) == ONE_FRAME_SIZE
                                     writeToController(ser, to_send)
                             
-                                    #hasErrorOccurred = False
-                                    #while (True):
-                                    #    message = getNextMessageAndWriteOut(ser, self.gui_dispatcher_queue, self.txt_serialoutput)
-                                    #    if message.startswith('OK'):
-                                    #        break
-                                    #    elif message.startswith('ERROR'):
-                                    #        self.gui_dispatcher_queue.append(lambda: self.txt_status.configure(text="Error occurred!"))
-                                    #        isControllerInitialized = False
-                                    #        hasErrorOccurred = True
-                                    #        break
+                                    hasErrorOccurred = False
+                                    while (True):
+                                        message = getNextMessageAndWriteOut(ser, self.gui_dispatcher_queue, self.txt_serialoutput)
+                                        if message.startswith('OK'):
+                                            break
+                                        elif message.startswith('ERROR'):
+                                            self.gui_dispatcher_queue.append(lambda: self.txt_status.configure(text="Error occurred!"))
+                                            isControllerInitialized = False
+                                            hasErrorOccurred = True
+                                            break
 
-                                    #if hasErrorOccurred:
-                                    #    break
+                                    if hasErrorOccurred:
+                                        break
 
         except Exception as ex:
-            self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.configure(text="Exception occurred: {}".format(ex)))
+            ex_str = "Exception occurred: {}".format(str(ex))
+            self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.configure(text=ex_str))
 
 
     def btn_connect_click(self):
