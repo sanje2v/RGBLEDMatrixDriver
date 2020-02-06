@@ -115,7 +115,7 @@ ISR(TIMER1_COMPA_vect)      // timer compare interrupt service routine
     
     int readBuffer;
     uint8_t bytesRead = 0;
-    while (readBuffer = SSerial.read(), readBuffer > 0)
+    while (readBuffer = SSerial.read(), readBuffer >= 0)
     {
       *g_pNextFrameBufferWritePos = (byte)readBuffer;
       if (g_pNextFrameBufferWritePos == &g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE - 1])
