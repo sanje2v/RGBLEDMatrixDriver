@@ -9,14 +9,8 @@
 #include <SPI.h>
 
 
-// Constants
-#define BITS_PER_BYTE                 8
-#define SYNC_BITS_PER_SERIAL_FRAME    2   // 1 start and 1 stop bit
-#define SERIAL_FRAME_SIZE             (BITS_PER_BYTE + SYNC_BITS_PER_SERIAL_FRAME)
-#define MILLIS_PER_SECOND             1000
-#define MILLIS_REQUIRED_PER_FRAME     ((SERIAL_FRAME_SIZE * ONE_FRAME_SIZE * uint32_t(MILLIS_PER_SECOND))/SERIAL_SPEED_BPS)
+// Defines and Constants
 #define SerialToHost                  Serial
-
 static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = _LEDMATRIX_SELECT_PINS;
 
 // Global allocation
@@ -24,10 +18,10 @@ static char g_pStringBuffer[128];
 static byte g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE];
 static uint8_t g_CurrentFrameIndex;
 static uint16_t g_NextFrameBufferWriteBytePos;
-static bool g_bResetNow;
+static bool g_bResetNowCommand;
 
 
-void fillFrameBufferWithDefaultPattern()
+inline void fillFrameBufferWithDefaultPattern()
 {
   byte rowStates[ONE_FRAME_SIZE];
   for (uint8_t i = 0; i < TOTAL_FRAMES; ++i)
@@ -87,69 +81,38 @@ void fillFrameBufferWithDefaultPattern()
   g_CurrentFrameIndex = 0;
 }
 
-void ClearSerialReceiveBuffer()
+inline void ClearSerialReceiveBuffer()
 {
   while (SerialToHost.available())
     SerialToHost.read();   // Read and drop bytes in RX buffer
 }
 
-void setup()
-{
-  // Initialize random seed generator
-  randomSeed(analogRead(0));
-  
-  // Initialize SPI for controlling LEDs and Serial for communicating with master
-  SPI.begin();
-  SerialToHost.begin(SERIAL_SPEED_BPS);
-  //SerialToHost.setTimeout(200);
-  
-  // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
-  for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
-  {
-    pinMode(LEDMATRIX_SELECT_PINS[i], OUTPUT);
-    digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH);
-  }
-  
-  // Fill default pattern for frame buffer
-  fillFrameBufferWithDefaultPattern();
-
-  // Set position of next write buffer
-  g_NextFrameBufferWriteBytePos = (TOTAL_FRAME_BUFFER_SIZE - ONE_FRAME_SIZE);
-
-  // Properly set do reset flag
-  g_bResetNow = false;
-  
-  // Notify host that this LED controller has been initialized
-  ClearSerialReceiveBuffer();
-  SerialToHost.println(F("INITIALIZED"));
-}
-
-inline void ReadSerialWriteToFrameBuffer()
+inline void ReadSerialAndWriteToFrameBuffer()
 {
   if (SerialToHost.available())
   {
+    g_bResetNowCommand = false;  // If we received more data after a 'reset-kinda' data, it wasn't a RESET command from host
+    
     int readBuffer;
-    uint8_t bytesRead = 0;
     while (readBuffer = SerialToHost.read(), readBuffer >= 0)
     {
       g_pFrameBuffer[g_NextFrameBufferWriteBytePos] = (byte)readBuffer;
       g_NextFrameBufferWriteBytePos = (g_NextFrameBufferWriteBytePos + 1) % TOTAL_FRAME_BUFFER_SIZE;
-      
-      ++bytesRead;
     }
-
+    
+    // Compute position of the closest beginning of the current frame buffer relative to 'g_NextFrameBufferWriteBytePos'
     byte *const pStartFrameBufferPos = &g_pFrameBuffer[g_NextFrameBufferWriteBytePos - (g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE)];
     if (strncmp((const char *)pStartFrameBufferPos, RESET_COMMAND, RESET_COMMAND_SIZE) == 0)
     {
       // We will reset in the next invocation of this function when
       // some time has elasped and no more data is given
-      g_bResetNow = true;
+      g_bResetNowCommand = true;
     }
-
+    
     if ((g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE) == 0)
       SerialToHost.println(F("OK: Received a frame."));
   }
-  else if (g_bResetNow)
+  else if (g_bResetNowCommand)
   {
     // Host has asked us to reset
     SerialToHost.println(F("INFO: Resetting..."));
@@ -160,15 +123,43 @@ inline void ReadSerialWriteToFrameBuffer()
   }
 }
 
+
+//////////////////////////// Start here
+void setup()
+{
+  // Initialize random seed generator
+  randomSeed(analogRead(0));
+  
+  // Initialize SPI for controlling LEDs and Serial for communicating with host
+  SPI.begin();
+  SerialToHost.begin(SERIAL_SPEED_BPS);
+  
+  // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
+  for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
+  {
+    pinMode(LEDMATRIX_SELECT_PINS[i], OUTPUT);
+    digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH);
+  }
+  
+  // Fill default pattern for frame buffer
+  fillFrameBufferWithDefaultPattern();
+  
+  // Set position of next write buffer
+  g_NextFrameBufferWriteBytePos = (TOTAL_FRAME_BUFFER_SIZE - ONE_FRAME_SIZE);
+  
+  // Properly set reset command flag
+  g_bResetNowCommand = false;
+  
+  // Notify host that this LED controller has been initialized
+  ClearSerialReceiveBuffer();
+  SerialToHost.println(F("INITIALIZED"));
+}
+
 void loop()
 {
-  // If this is the last frame, notify host
-  // NOTE: This hint can allow the host to send next set of frames.
-  if ((g_CurrentFrameIndex + 1) == TOTAL_FRAMES)
-    SerialToHost.println(F("COMPLETED"));
-
   // Draw current frame
-  // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
+  // NOTE: We need to rapidly redraw each frame multiple times
+  // as we can only turn ON one row of a LED at a time.
   #ifdef PRINT_MILLIS_PER_FRAME
   unsigned long start_time = millis();
   #endif
@@ -203,17 +194,15 @@ void loop()
       SPI.transfer(0x01 << (NUM_ROWS_PER_MATRIX - 1));
       digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH);
     }
-
-    ReadSerialWriteToFrameBuffer();
+    
+    // If host has sent us frame data, we write it to frame buffer data
+    ReadSerialAndWriteToFrameBuffer();
   }
   
   #ifdef PRINT_MILLIS_PER_FRAME
   sprintf_P(g_pStringBuffer, (PGM_P)F("INFO: 1 frame took %i ms."), (millis() - start_time));
   SerialToHost.println(g_pStringBuffer);
   #endif
-  
-  // Check if there is data available in Serial port from host and if so record it
-  //ReadSerialWriteToFrameBuffer();
   
   // Increment current frame index pointer
   g_CurrentFrameIndex = (g_CurrentFrameIndex + 1) % TOTAL_FRAMES;

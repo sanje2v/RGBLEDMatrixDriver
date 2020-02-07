@@ -61,12 +61,10 @@ class Application:
         self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
                                                                  self.gui_dispatcher)
 
-    def writeToController(self, serialToController, data, wait=False):
+    def writeToController(self, serialToController, data):
         while (serialToController.out_waiting > 0):
             pass
 
-        if wait:
-            time.sleep(1.0)
         serialToController.write(data)
 
     def thread_worker_func(self, port):
@@ -136,12 +134,10 @@ class Application:
                         elif isControllerInitialized:
                             # See if it is 'COMPLETED' message which means we need to send next set
                             # of frames if all the frames don't fit in controller's memory.
-                            #if message == settings.CONTROLLER_LAST_FRAME_MESSAGE:
                             for to_send in [FRAMES[i:(i + ONE_FRAME_SIZE)] for i in range(0, len(FRAMES), ONE_FRAME_SIZE)]:
                                 to_send = b''.join(to_send)
                                 assert len(to_send) == ONE_FRAME_SIZE
                                 self.writeToController(serialToController, to_send)
-                                #time.sleep(0.02)
                             
                                 hasErrorOccurred = False
                                 while (True):
