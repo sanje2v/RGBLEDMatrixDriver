@@ -152,7 +152,7 @@
               <property name="row">2</property>
             </layout>
             <child>
-              <object class="ttk.Label" id="txt_status">
+              <object class="ttk.Label" id="lbl_status">
                 <property name="compound">top</property>
                 <property name="cursor">arrow</property>
                 <property name="takefocus">false</property>

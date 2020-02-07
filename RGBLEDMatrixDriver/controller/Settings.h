@@ -1,3 +1,6 @@
+#ifndef Settings_h
+#define Settings_h
+
 // SETTINGS
 //#define PRINT_MILLIS_PER_FRAME      // NOTE: Uncomment this line to print milliseconds that a frame is shown to serial
 
@@ -16,4 +19,5 @@
 #define TOTAL_FRAME_BUFFER_SIZE               (TOTAL_FRAMES * ONE_FRAME_SIZE)   // NOTE: For 4 matrices, this allows for 12 frames
 #define NUM_REDRAW_EACH_FRAME                 118                     // NOTE: This value allows us to set milliseconds to show per frame
 #define _LEDMATRIX_SELECT_PINS								{ 10, 11, 12, 13 }      // CAUTION: Make sure the number of pins match 'NUM_LED_MATRICES'
-#define _SS_MAX_RX_BUFF                       128                     // CAUTION: Needs to be able to hold one frame and should be a power of 2
+
+#endif

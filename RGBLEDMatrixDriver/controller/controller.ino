@@ -5,7 +5,6 @@
  */
 
 #include "Settings.h"
-#include "SoftwareSerial.h"
 #include<avr/wdt.h>
 #include <SPI.h>
 
@@ -16,6 +15,7 @@
 #define SERIAL_FRAME_SIZE             (BITS_PER_BYTE + SYNC_BITS_PER_SERIAL_FRAME)
 #define MILLIS_PER_SECOND             1000
 #define MILLIS_REQUIRED_PER_FRAME     ((SERIAL_FRAME_SIZE * ONE_FRAME_SIZE * uint32_t(MILLIS_PER_SECOND))/SERIAL_SPEED_BPS)
+#define SerialToHost                  Serial
 
 static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = _LEDMATRIX_SELECT_PINS;
 
@@ -24,7 +24,7 @@ static char g_pStringBuffer[128];
 static byte g_pFrameBuffer[TOTAL_FRAME_BUFFER_SIZE];
 static uint8_t g_CurrentFrameIndex;
 static uint16_t g_NextFrameBufferWriteBytePos;
-static SoftwareSerial SSerial(2, 3); // pins in order of (RX, TX)
+static bool g_bResetNow;
 
 
 void fillFrameBufferWithDefaultPattern()
@@ -89,8 +89,8 @@ void fillFrameBufferWithDefaultPattern()
 
 void ClearSerialReceiveBuffer()
 {
-  while (SSerial.available())
-    SSerial.read();   // Read and drop bytes in RX buffer
+  while (SerialToHost.available())
+    SerialToHost.read();   // Read and drop bytes in RX buffer
 }
 
 void setup()
@@ -100,8 +100,8 @@ void setup()
   
   // Initialize SPI for controlling LEDs and Serial for communicating with master
   SPI.begin();
-  SSerial.begin(SERIAL_SPEED_BPS);
-  //SSerial.setTimeout(200);
+  SerialToHost.begin(SERIAL_SPEED_BPS);
+  //SerialToHost.setTimeout(200);
   
   // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
   for (uint8_t i = 0; i < NUM_LED_MATRICES; ++i)
@@ -115,42 +115,48 @@ void setup()
 
   // Set position of next write buffer
   g_NextFrameBufferWriteBytePos = (TOTAL_FRAME_BUFFER_SIZE - ONE_FRAME_SIZE);
+
+  // Properly set do reset flag
+  g_bResetNow = false;
   
   // Notify host that this LED controller has been initialized
   ClearSerialReceiveBuffer();
-  SSerial.println(F("INITIALIZED"));
+  SerialToHost.println(F("INITIALIZED"));
 }
 
-void ReadSerialWriteToFrameBuffer()
+inline void ReadSerialWriteToFrameBuffer()
 {
-  if (SSerial.available())
+  if (SerialToHost.available())
   {
-    byte *const pStartNextFrameBufferWriteBytePos = &g_pFrameBuffer[g_NextFrameBufferWriteBytePos];
     int readBuffer;
     uint8_t bytesRead = 0;
-    while (readBuffer = SSerial.read(), readBuffer >= 0)
+    while (readBuffer = SerialToHost.read(), readBuffer >= 0)
     {
       g_pFrameBuffer[g_NextFrameBufferWriteBytePos] = (byte)readBuffer;
       g_NextFrameBufferWriteBytePos = (g_NextFrameBufferWriteBytePos + 1) % TOTAL_FRAME_BUFFER_SIZE;
       
       ++bytesRead;
     }
-    
-    if (bytesRead == RESET_COMMAND_SIZE &&
-        strncmp((const char *)pStartNextFrameBufferWriteBytePos, RESET_COMMAND, RESET_COMMAND_SIZE) == 0)
+
+    byte *const pStartFrameBufferPos = &g_pFrameBuffer[g_NextFrameBufferWriteBytePos - (g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE)];
+    if (strncmp((const char *)pStartFrameBufferPos, RESET_COMMAND, RESET_COMMAND_SIZE) == 0)
     {
-      // TODO: More logic needed here to make sure RESET command was sent by host.
-      
-      // Host has asked us to reset
-      SSerial.println(F("INFO: Resetting..."));
-      
-      // NOTE: We use watchdog timer to reset the system
-      wdt_enable(WDTO_15MS);
-      while (true) {} // Let the watchdog timer fire
+      // We will reset in the next invocation of this function when
+      // some time has elasped and no more data is given
+      g_bResetNow = true;
     }
 
     if ((g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE) == 0)
-      SSerial.println(F("OK: Received a frame."));
+      SerialToHost.println(F("OK: Received a frame."));
+  }
+  else if (g_bResetNow)
+  {
+    // Host has asked us to reset
+    SerialToHost.println(F("INFO: Resetting..."));
+    
+    // NOTE: We use watchdog timer to reset the system
+    wdt_enable(WDTO_15MS);
+    while (true) {} // Let the watchdog timer fire
   }
 }
 
@@ -159,11 +165,8 @@ void loop()
   // If this is the last frame, notify host
   // NOTE: This hint can allow the host to send next set of frames.
   if ((g_CurrentFrameIndex + 1) == TOTAL_FRAMES)
-    SSerial.println(F("COMPLETED"));
+    SerialToHost.println(F("COMPLETED"));
 
-  // Check if there is data available in Serial port from host and if so record it
-  ReadSerialWriteToFrameBuffer();
-  
   // Draw current frame
   // NOTE: We redraw each frame multiple times as we cannot use delay (as display state don't hold)
   #ifdef PRINT_MILLIS_PER_FRAME
@@ -200,15 +203,17 @@ void loop()
       SPI.transfer(0x01 << (NUM_ROWS_PER_MATRIX - 1));
       digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH);
     }
+
+    ReadSerialWriteToFrameBuffer();
   }
   
   #ifdef PRINT_MILLIS_PER_FRAME
   sprintf_P(g_pStringBuffer, (PGM_P)F("INFO: 1 frame took %i ms."), (millis() - start_time));
-  SSerial.println(g_pStringBuffer);
+  SerialToHost.println(g_pStringBuffer);
   #endif
   
   // Check if there is data available in Serial port from host and if so record it
-  ReadSerialWriteToFrameBuffer();
+  //ReadSerialWriteToFrameBuffer();
   
   // Increment current frame index pointer
   g_CurrentFrameIndex = (g_CurrentFrameIndex + 1) % TOTAL_FRAMES;
