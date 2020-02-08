@@ -43,6 +43,7 @@ class Application:
         self.txt_serialoutput.bind("<Key>", lambda e: "break")
 
         # Configure variables
+        self.isControllerInitialized = False
         self.thread_worker = None
         self.thread_worker_signal = threading.Event()
 
@@ -62,9 +63,6 @@ class Application:
                                                                  self.gui_dispatcher)
 
     def writeToController(self, serialToController, data):
-        while (serialToController.out_waiting > 0):
-            pass
-
         serialToController.write(data)
 
     def thread_worker_func(self, port):
@@ -79,6 +77,10 @@ class Application:
             gui_dispatcher_queue.append(lambda: txt_serialoutput.insert(tk.END, message + '\n'))
 
             return message
+
+        def sendCommandToControllerIfAny(worker_dispatcher_queue, serialToController):
+            while (worker_dispatcher_queue):
+                worker_dispatcher_queue.pop(0)(serialToController)
 
         # TEST ONLY
         FRAME_WRITE_OUT_INDEX = 0
@@ -115,30 +117,36 @@ class Application:
                 serialToController.reset_output_buffer()
 
                 # Ask controller to reset
-                self.writeToController(serialToController, bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8'), wait=True)
+                self.writeToController(serialToController, bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8'))
 
-                isControllerInitialized = False
                 while (not self.thread_worker_signal.isSet()):
-                    while (self.worker_dispatcher_queue):
-                        self.worker_dispatcher_queue.pop(0)(serialToController)
+                    sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
 
                     if (serialToController.in_waiting):
                         message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
 
-                        if not isControllerInitialized and message == settings.CONTROLLER_INITIALIZED_MESSAGE:
+                        if not self.isControllerInitialized and message == settings.CONTROLLER_INITIALIZED_MESSAGE:
                             # LED controller is not initialized
-                            isControllerInitialized = True
+                            self.isControllerInitialized = True
 
                             self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller initialized. Ready."))
-                    
-                        elif isControllerInitialized:
+                        
+                        elif self.isControllerInitialized:
                             # See if it is 'COMPLETED' message which means we need to send next set
                             # of frames if all the frames don't fit in controller's memory.
                             for to_send in [FRAMES[i:(i + ONE_FRAME_SIZE)] for i in range(0, len(FRAMES), ONE_FRAME_SIZE)]:
+                                # Wait for 'SYNC' message before sending a frame
+                                while (True):
+                                    message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
+                                    if message.startswith('SYNC'):
+                                        break
+
+                                    sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
+
                                 to_send = b''.join(to_send)
                                 assert len(to_send) == ONE_FRAME_SIZE
                                 self.writeToController(serialToController, to_send)
-                            
+                                
                                 hasErrorOccurred = False
                                 while (True):
                                     message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
@@ -146,9 +154,11 @@ class Application:
                                         break
                                     elif message.startswith('ERROR'):
                                         self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Error occurred!"))
-                                        isControllerInitialized = False
+                                        self.isControllerInitialized = False
                                         hasErrorOccurred = True
                                         break
+
+                                    sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
 
                                 if hasErrorOccurred:
                                     break
@@ -176,6 +186,8 @@ class Application:
 
 
     def btn_reset_click(self):
+        self.isControllerInitialized = False
+        self.lbl_status.configure(text="Reset sent. Waiting for initializing message from controller.")
         self.worker_dispatcher_queue.append(lambda serialToController: self.writeToController(serialToController, bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8')))
 
 

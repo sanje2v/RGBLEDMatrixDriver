@@ -101,12 +101,19 @@ inline void ReadSerialAndWriteToFrameBuffer()
     }
     
     // Compute position of the closest beginning of the current frame buffer relative to 'g_NextFrameBufferWriteBytePos'
-    byte *const pStartFrameBufferPos = &g_pFrameBuffer[g_NextFrameBufferWriteBytePos - (g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE)];
-    if (strncmp((const char *)pStartFrameBufferPos, RESET_COMMAND, RESET_COMMAND_SIZE) == 0)
+    const uint8_t MAX_BOUND_COMMAND_SIZE_CHECK = 10;
+    const uint16_t BytesWrittenInCurrentFrame = (g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE);
+    if ((BytesWrittenInCurrentFrame >= RESET_COMMAND_SIZE) &&
+        (BytesWrittenInCurrentFrame < (RESET_COMMAND_SIZE + MAX_BOUND_COMMAND_SIZE_CHECK)))
     {
-      // We will reset in the next invocation of this function when
-      // some time has elasped and no more data is given
-      g_bResetNowCommand = true;
+      const uint16_t CurrentFrameBufferStartBytePos = (g_NextFrameBufferWriteBytePos - BytesWrittenInCurrentFrame);
+      byte *const pStartFrameBufferPos = &g_pFrameBuffer[CurrentFrameBufferStartBytePos];
+      if (strncmp((const char *)pStartFrameBufferPos, RESET_COMMAND, RESET_COMMAND_SIZE) == 0)
+      {
+        // We will reset in the next invocation of this function when
+        // some time has elasped and if no more data is given
+        g_bResetNowCommand = true;
+      }
     }
     
     if ((g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE) == 0)
@@ -157,6 +164,9 @@ void setup()
 
 void loop()
 {
+  // Send SYNC message to host so that it may send the next frame
+  SerialToHost.println(F("SYNC"));
+  
   // Draw current frame
   // NOTE: We need to rapidly redraw each frame multiple times
   // as we can only turn ON one row of a LED at a time.
