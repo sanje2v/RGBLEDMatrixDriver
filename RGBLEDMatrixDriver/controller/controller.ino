@@ -117,7 +117,10 @@ inline void ReadSerialAndWriteToFrameBuffer()
     }
     
     if ((g_NextFrameBufferWriteBytePos % ONE_FRAME_SIZE) == 0)
+    {
       SerialToHost.println(F("OK: Received a frame."));
+      //SerialToHost.flush();
+    }
   }
   else if (g_bResetNowCommand)
   {
@@ -158,14 +161,17 @@ void setup()
   g_bResetNowCommand = false;
   
   // Notify host that this LED controller has been initialized
+  delay(1000);
   ClearSerialReceiveBuffer();
   SerialToHost.println(F("INITIALIZED"));
+  SerialToHost.flush();
 }
 
 void loop()
 {
-  // Send SYNC message to host so that it may send the next frame
+  // The following message is a hint for host to send the next frame
   SerialToHost.println(F("SYNC"));
+  SerialToHost.flush();
   
   // Draw current frame
   // NOTE: We need to rapidly redraw each frame multiple times

@@ -84,27 +84,29 @@ class Application:
 
         # TEST ONLY
         FRAME_WRITE_OUT_INDEX = 0
-        NUM_DEFAULT_FRAMES = 12
+        NUM_FRAMES = 12
         ONE_FRAME_SIZE = 96
-        FRAMES = [b'\xFF']*(12 * ONE_FRAME_SIZE)
+        NUM_COLORS_PER_DOT = 3
+        FRAMES = [b'\xFF']*(NUM_FRAMES * ONE_FRAME_SIZE)
 
-        # Add RED
-        for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * ONE_FRAME_SIZE), 3):
-            FRAMES[i+0] = b'\x00'  # Red
-            FRAMES[i+1] = b'\xFF'  # Blue
-            FRAMES[i+2] = b'\xFF'  # Green
-
-        # Add GREEN
-        for i in range(((NUM_DEFAULT_FRAMES // 2) * ONE_FRAME_SIZE), (NUM_DEFAULT_FRAMES * ONE_FRAME_SIZE), 3):
-            FRAMES[i+0] = b'\xFF'  # Red
-            FRAMES[i+1] = b'\xFF'  # Blue
-            FRAMES[i+2] = b'\x00'  # Green
-
-        # Add BLUE
-        #for i in range(0, ((NUM_DEFAULT_FRAMES // 2) * 96), 3):
-        #    FRAMES[i+0] = b'\xFF'  # Red
-        #    FRAMES[i+1] = b'\xFF'  # Blue
-        #    FRAMES[i+2] = b'\x00'  # Green
+        for i in range(0, NUM_FRAMES):
+            for j in range(0, ONE_FRAME_SIZE, NUM_COLORS_PER_DOT):
+                if i < 3:
+                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\x00'    # Red
+                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\xFF'    # Green
+                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\xFF'    # Blue
+                elif i < 6:
+                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\xFF'
+                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\x00'
+                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\xFF'
+                elif i < 9:
+                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\xFF'
+                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\xFF'
+                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\x00'
+                else:
+                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\xFF'
+                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\x00'
+                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\x00'
 
         assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
 
@@ -119,6 +121,9 @@ class Application:
                 # Ask controller to reset
                 self.writeToController(serialToController, bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8'))
 
+                # Set the index in FRAME of next frame
+                next_frame_start_position = 0
+
                 while (not self.thread_worker_signal.isSet()):
                     sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
 
@@ -131,37 +136,28 @@ class Application:
 
                             self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller initialized. Ready."))
                         
-                        elif self.isControllerInitialized:
-                            # See if it is 'COMPLETED' message which means we need to send next set
-                            # of frames if all the frames don't fit in controller's memory.
-                            for to_send in [FRAMES[i:(i + ONE_FRAME_SIZE)] for i in range(0, len(FRAMES), ONE_FRAME_SIZE)]:
-                                # Wait for 'SYNC' message before sending a frame
-                                while (True):
-                                    message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
-                                    if message.startswith('SYNC'):
-                                        break
-
-                                    sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
-
-                                to_send = b''.join(to_send)
-                                assert len(to_send) == ONE_FRAME_SIZE
-                                self.writeToController(serialToController, to_send)
+                        elif self.isControllerInitialized and message.startswith('SYNC'):
+                            to_send = FRAMES[next_frame_start_position:(next_frame_start_position + ONE_FRAME_SIZE)]
+                            assert len(to_send) == ONE_FRAME_SIZE
+                            next_frame_start_position = (next_frame_start_position + ONE_FRAME_SIZE) % len(FRAMES)
+                            to_send = b''.join(to_send)
+                            self.writeToController(serialToController, to_send)
                                 
-                                hasErrorOccurred = False
-                                while (True):
-                                    message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
-                                    if message.startswith('OK'):
-                                        break
-                                    elif message.startswith('ERROR'):
-                                        self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Error occurred!"))
-                                        self.isControllerInitialized = False
-                                        hasErrorOccurred = True
-                                        break
-
-                                    sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
-
-                                if hasErrorOccurred:
+                            hasErrorOccurred = False
+                            while (True):
+                                message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
+                                if message.startswith('OK'):
                                     break
+                                elif message.startswith('ERROR'):
+                                    self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Error occurred!"))
+                                    self.isControllerInitialized = False
+                                    hasErrorOccurred = True
+                                    break
+
+                                sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
+
+                            if hasErrorOccurred:
+                                break
 
         except Exception as ex:
             ex_str = "Exception occurred: {}".format(str(ex))
