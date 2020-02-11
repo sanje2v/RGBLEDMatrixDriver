@@ -33,9 +33,9 @@ namespace WindowsFormsApp1
             string getNextMessageAndWriteOut(Form1 __this, SerialPort serialToController)
             {
                 string message = String.Copy(serialToController.ReadLine());
-                __this.gui_dispatcher_queue.Enqueue(() => __this.txt_serialoutput.AppendText(message));
+                __this.gui_dispatcher_queue.Enqueue(() => __this.txt_serialoutput.AppendText(message + Environment.NewLine));
 
-                return message.TrimEnd();
+                return message;
             }
 
             Form1 _this = (Form1)_Form1;
@@ -75,8 +75,12 @@ namespace WindowsFormsApp1
 
             try
             {
-                using (var serialToController = new SerialPort("COM1", 52700, Parity.None, 8, StopBits.One))
+                using (var serialToController = new SerialPort("COM1", 57600, Parity.None, 8, StopBits.One))
                 {
+                    //serialToController.ReadTimeout = 1000;
+                    //serialToController.WriteTimeout = 1000;
+
+                    serialToController.Open();
                     serialToController.NewLine = "\r\n";
 
                     serialToController.DiscardInBuffer();
@@ -105,7 +109,7 @@ namespace WindowsFormsApp1
                                 serialToController.Write(_this.FRAMES.ToArray(), next_frame_start_position, ONE_FRAME_SIZE);
                                 next_frame_start_position = (next_frame_start_position + ONE_FRAME_SIZE) % _this.FRAMES.Count;
 
-                                bool hasErrorOccurred = true;
+                                bool hasErrorOccurred = false;
                                 while (true)
                                 {
                                     message = getNextMessageAndWriteOut(_this, serialToController);

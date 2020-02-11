@@ -42,8 +42,10 @@
             this.txt_serialoutput.Multiline = true;
             this.txt_serialoutput.Name = "txt_serialoutput";
             this.txt_serialoutput.ReadOnly = true;
+            this.txt_serialoutput.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.txt_serialoutput.Size = new System.Drawing.Size(523, 348);
             this.txt_serialoutput.TabIndex = 0;
+            this.txt_serialoutput.WordWrap = false;
             // 
             // lbl_status
             // 
