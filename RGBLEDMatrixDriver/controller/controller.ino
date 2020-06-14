@@ -5,7 +5,7 @@
  */
 
 #include "Settings.h"
-#include<avr/wdt.h>
+//#include<avr/wdt.h>
 #include <SPI.h>
 
 
@@ -62,18 +62,39 @@ inline void fillFrameBufferWithDefaultPattern()
       {
         for (uint8_t l = 0; l < NUM_COLORS_PER_ROW_DOT; ++l)
         {
-          byte rowState;
+          /*byte rowState;
           if (i < (TOTAL_FRAMES/2))
           {
-            rowState = (l == 1 ? 0x00 : 0xFF);
+            rowState = ((l == 1) || (l == 0) ? 0x00 : 0xFF);
           }
           else
           {
             rowState = (l == 2 ? 0x00 : 0xFF);
           }
           pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = rowState;//rowStates[k * NUM_COLORS_PER_ROW_DOT + l];
+          */
+
+          byte rowState = 0xFF;
+          /*if (k == 1 && l  == 1)
+            rowState = 0x3E;
+          else
+            rowState = 0xFF;*/
+
+          pCurrentMatrixFrameBuffer[k * NUM_COLORS_PER_ROW_DOT + l] = rowState;
         }
       }
+    }
+
+    if (i < TOTAL_FRAMES/2)
+    {
+      g_pFrameBuffer[0] = 0x3E;
+      g_pFrameBuffer[1] = 0x3E;
+
+      g_pFrameBuffer[3] = 0x3E;
+      g_pFrameBuffer[4] = 0x3E;
+      g_pFrameBuffer[5] = 0x3E;
+      
+      g_pFrameBuffer[8] = 0x3E;
     }
   }
   
@@ -128,7 +149,7 @@ inline void ReadSerialAndWriteToFrameBuffer()
     SerialToHost.println(F("INFO: Resetting..."));
     
     // NOTE: We use watchdog timer to reset the system
-    wdt_enable(WDTO_15MS);
+    //wdt_enable(WDTO_15MS);
     while (true) {} // Let the watchdog timer fire
   }
 }
@@ -141,7 +162,9 @@ void setup()
   randomSeed(analogRead(0));
   
   // Initialize SPI for controlling LEDs and Serial for communicating with host
-  SPI.begin();
+  //SPI.begin();
+  //SPI.endTransaction();
+  
   SerialToHost.begin(SERIAL_SPEED_BPS);
   
   // Configure SPI Slave Select pins as output pins and deselected slaves in SPI
@@ -169,6 +192,8 @@ void setup()
 
 void loop()
 {
+  SPI.beginTransaction(SPISettings(F_CPU, LSBFIRST, SPI_MODE0));
+  
   // The following message is a hint for host to send the next frame
   SerialToHost.println(F("SYNC"));
   SerialToHost.flush();
@@ -189,12 +214,11 @@ void loop()
       for (uint8_t j = 0; j < NUM_ROWS_PER_MATRIX; ++j)
       {
         digitalWrite(LEDMATRIX_SELECT_PINS[i], LOW);  // Select a slave LED matrix
-
         for (uint8_t k = 0; k < NUM_COLORS_PER_ROW_DOT; ++k)
         {
           SPI.transfer(pCurrentMatrixFrameBuffer[j * NUM_COLORS_PER_ROW_DOT + k]);
         }
-        SPI.transfer(0x01 << j);  // Send row index for current LED matrix
+        SPI.transfer(0x80 >> j);  // Send row index for current LED matrix
 
         digitalWrite(LEDMATRIX_SELECT_PINS[i], HIGH); // Deselect the selected LED matrix
       }
@@ -222,4 +246,6 @@ void loop()
   
   // Increment current frame index pointer
   g_CurrentFrameIndex = (g_CurrentFrameIndex + 1) % TOTAL_FRAMES;
+
+  SPI.endTransaction();
 }

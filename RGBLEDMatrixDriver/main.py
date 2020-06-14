@@ -16,7 +16,7 @@ class Application:
     CONTROLLER_RESET_COMMAND = 'RESET\r\n'
 
 
-    def __init__(self, ports):
+    def __init__(self, ports, is_service, params):
         # Create a builder
         self.builder = builder = pygubu.Builder()
 
@@ -214,7 +214,9 @@ if __name__ == '__main__':
         print("ERROR: No COM ports were found in your system! Aborted.")
         exit(-1)
 
-    app = Application([x.device for x in com_ports])
+    is_service = ('--as-service' in sys.argv) and ('--params' in sys.argv)
+
+    app = Application([x.device for x in com_ports], is_service=is_service, params)
     app.run()
 
     exit(0)
