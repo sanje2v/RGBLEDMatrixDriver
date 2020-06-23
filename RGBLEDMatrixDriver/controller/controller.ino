@@ -4,14 +4,18 @@
  * Written by: Sanjeev Sharma. Copyright 2020.
  */
 
-#include "Settings.h"
+#include "settings.h"
 //#include<avr/wdt.h>
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+  #include <avr/power.h>
+#endif
 #include <SPI.h>
 
 
-// Defines and Constants
+// Defines, function shortnames and Constants
 #define SerialToHost                  Serial
-static const int LEDMATRIX_SELECT_PINS[NUM_LED_MATRICES] = _LEDMATRIX_SELECT_PINS;
+#define FORCE_INLINE                  __attribute__((always_inline)) inline
 
 // Global allocation
 static char g_pStringBuffer[128];
@@ -20,9 +24,14 @@ static uint8_t g_CurrentFrameIndex;
 static uint16_t g_NextFrameBufferWriteBytePos;
 static bool g_bResetNowCommand;
 
+// Static objects
+//Adafruit_NeoPixel g_sLEDMatrices = Adafruit_NeoPixel(LED_MATRICES_PWM_PIN, PIN, NEO_GRB + NEO_KHZ800);
 
-inline void fillFrameBufferWithDefaultPattern()
+
+/*FORCE_INLINE void fillFrameBufferWithDefaultPattern()
 {
+  
+  
   byte rowStates[ONE_FRAME_SIZE];
   for (uint8_t i = 0; i < TOTAL_FRAMES; ++i)
   {
@@ -52,7 +61,7 @@ inline void fillFrameBufferWithDefaultPattern()
             break;
         }
       }
-    }*/
+    }
     
     for (uint8_t j = 0; j < NUM_LED_MATRICES; ++j)
     {
@@ -152,14 +161,14 @@ inline void ReadSerialAndWriteToFrameBuffer()
     //wdt_enable(WDTO_15MS);
     while (true) {} // Let the watchdog timer fire
   }
-}
+}*/
 
 
 //////////////////////////// Start here
 void setup()
 {
   // Initialize random seed generator
-  randomSeed(analogRead(0));
+  /*randomSeed(analogRead(0));
   
   // Initialize SPI for controlling LEDs and Serial for communicating with host
   //SPI.begin();
@@ -187,12 +196,12 @@ void setup()
   delay(1000);
   ClearSerialReceiveBuffer();
   SerialToHost.println(F("INITIALIZED"));
-  SerialToHost.flush();
+  SerialToHost.flush();*/
 }
 
 void loop()
 {
-  SPI.beginTransaction(SPISettings(F_CPU, LSBFIRST, SPI_MODE0));
+  /*SPI.beginTransaction(SPISettings(F_CPU, LSBFIRST, SPI_MODE0));
   
   // The following message is a hint for host to send the next frame
   SerialToHost.println(F("SYNC"));
@@ -247,5 +256,5 @@ void loop()
   // Increment current frame index pointer
   g_CurrentFrameIndex = (g_CurrentFrameIndex + 1) % TOTAL_FRAMES;
 
-  SPI.endTransaction();
+  SPI.endTransaction();*/
 }
