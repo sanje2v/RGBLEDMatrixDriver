@@ -4,33 +4,33 @@
 #include "settings.h"
 #include "patterns.h"
 
-#include <Adafruit_NeoPixel.h>
+//#include "libraries/Adafruit_NeoPixel_UnmanagedBuffer/Adafruit_NeoPixel_Unmanagedbuf.h"
 
 
 // Defines, function shortnames and Constants
 #define FORCE_INLINE                  __attribute__((always_inline)) inline
 
 
-FORCE_INLINE void fillFrameBufferWithDefaultPattern(uint8_t *g_pFramesBuffer, uint8_t TotalFrames, )
+FORCE_INLINE void fillFramesBufferWithDefaultPattern(uint8_t *g_pFramesBuffer, uint16_t TotalFramesSize)
 {
-  for (int frame_id = 0; frame_id < TotalFrames; frame_id++)
+  for (int i = 0; i < TotalFramesSize; i += NUM_COLORS_PER_ROW_DOT)
   {
-    
+    for (int j = 0; j < NUM_COLORS_PER_ROW_DOT; j++)
+      g_pFramesBuffer[i] = 0xFF;
   }
 }
 
-FORCE_INLINE void incrementFrameDisplayIndex(uint8_t CurrentDisplayFrameIndex, uint8_t TotalFrames)
+FORCE_INLINE uint8_t incrementFrameDisplayIndex(uint8_t CurrentDisplayFrameIndex, uint8_t TotalFrames)
 {
   return (CurrentDisplayFrameIndex + 1) % TotalFrames;
 }
 
 FORCE_INLINE void clearSerialReceiveBuffer()
 {
-  while (Serial.available())
-    Serial.read();   // Read and drop bytes in RX buffer
+  while (Serial.read() > 0);   // Read and drop bytes in RX buffer
 }
 
-inline void ReadSerialAndWriteToFrameBuffer()
+/*inline void ReadSerialAndWriteToFrameBuffer()
 {
   if (SerialToHost.available())
   {
@@ -74,6 +74,6 @@ inline void ReadSerialAndWriteToFrameBuffer()
     //wdt_enable(WDTO_15MS);
     while (true) {} // Let the watchdog timer fire
   }
-}
+}*/
 
 #endif

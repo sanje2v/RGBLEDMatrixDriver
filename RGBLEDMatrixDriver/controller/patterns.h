@@ -1,10 +1,10 @@
 #ifndef PATTERNS_H
 #define PATTERNS_H
 
-#include <Adafruit_NeoPixel.h>
+//#include "libraries/Adafruit_NeoPixel_UnmanagedBuffer/Adafruit_NeoPixel_Unmanagedbuf.h"
 
 
-void colorWipe(Adafruit_NeoPixel& strip, uint32_t c, uint8_t wait)
+/*void colorWipe(Adafruit_NeoPixel& strip, uint32_t c, uint8_t wait)
 {
   for(uint16_t i=0; i<strip.numPixels(); i++)
   {
@@ -96,6 +96,6 @@ uint32_t Wheel(Adafruit_NeoPixel& strip, byte WheelPos)
   WheelPos -= 170;
   
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-}
+}*/
 
 #endif
