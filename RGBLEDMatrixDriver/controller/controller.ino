@@ -62,6 +62,10 @@ void setup()
 
 void loop()
 {
+  // First, notify host we are ready to receive the next frame
+  Serial.print(SYNC_MESSAGE);
+  Serial.flush();
+  
   #ifdef DEBUG
   auto _debugstartTimeMs = millis();
   #endif
@@ -73,10 +77,8 @@ void loop()
   Serial.print("INFO: Displaying 1 frame required (ms): " + String(millis() - _debugstartTimeMs) + "\n");
   #endif
   
-  // First, notify host we are ready to receive the next frame
+  
   /*auto startTimeMs = millis();
-  Serial.print(SYNC_MESSAGE);
-  Serial.flush();
   
   do
   {
