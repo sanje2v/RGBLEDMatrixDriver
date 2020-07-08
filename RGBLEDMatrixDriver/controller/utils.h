@@ -11,13 +11,14 @@
 #define FORCE_INLINE                  __attribute__((always_inline)) inline
 
 
-FORCE_INLINE void fillFramesBufferWithDefaultPattern(uint8_t *g_pFramesBuffer, uint16_t TotalFramesSize)
+FORCE_INLINE void fillFramesBufferForHardReset(uint8_t *pFramesBuffer, uint16_t TotalFramesBufferSize)
 {
-  for (int i = 0; i < TotalFramesSize; i += NUM_COLORS_PER_ROW_DOT)
-  {
-    for (int j = 0; j < NUM_COLORS_PER_ROW_DOT; j++)
-      g_pFramesBuffer[i] = 0xFF;
-  }
+  memset(pFramesBuffer, LED_COLOR_CHANNEL_ON, TotalFramesBufferSize);
+}
+
+FORCE_INLINE void fillFramesBufferForSoftReset(uint8_t *pFramesBuffer, uint16_t TotalFramesBufferSize)
+{
+  memset(pFramesBuffer, LED_COLOR_CHANNEL_OFF, TotalFramesBufferSize);
 }
 
 FORCE_INLINE uint8_t incrementFrameDisplayIndex(uint8_t CurrentDisplayFrameIndex, uint8_t TotalFrames)

@@ -10,20 +10,11 @@
 #include <decompressor.h>
 #include <Adafruit_NeoPixel_Unmanagedbuf.h>
 
-//#include<avr/wdt.h>
-
-#ifdef __AVR__
-  #include <avr/power.h>
-#endif
-
 
 // Defines, function shortnames and Constants
 
 
 // Global allocation
-/*#ifdef DEBUG
-static char g_pStringBuffer[128];
-#endif*/
 static uint8_t g_pFramesBuffer[TOTAL_FRAMES_BUFFER_SIZE];
 static uint8_t g_CurrentDisplayFrameIndex;
 static uint16_t g_CurrentWriteBytePos;
@@ -45,9 +36,9 @@ void setup()
   randomSeed(analogRead(RANDOM_GEN_PIN));
   
   // Initialize frame buffer and associated pointer and indices
-  fillFramesBufferWithDefaultPattern(g_pFramesBuffer, TOTAL_FRAMES_BUFFER_SIZE);
+  fillFramesBufferForHardReset(g_pFramesBuffer, TOTAL_FRAMES_BUFFER_SIZE);
   g_CurrentDisplayFrameIndex = 0;
-  g_CurrentWriteBytePos = static_cast<uint16_t>(TOTAL_FRAMES_BUFFER_SIZE / 4);
+  g_CurrentWriteBytePos = static_cast<uint16_t>(2);
   g_sLEDMatrices.setPixelsPtr(&g_pFramesBuffer[0]);
   g_sLEDMatrices.begin();
   

@@ -1,0 +1,34 @@
+[1111,1111], [1111,1111]
+[R, G], [B, Repeats]
+
+[1111,1111], [1111,1111], [1111,1111]
+[R, Repeats], [G, Repeats], [B, Repeats]
+
+[11111, 111], [11111, 111], [11111, 111]
+[R, Repeats], [G, Repeats], [B, Repeats]
+
+
+///////////// During hard reset
+1. Controller: Zero out frame buffer memory (or whatever default frames for hard reset should look like) and initialize variables.
+2. Controller: Send 'READY\n' to host with 'flush()'.
+
+
+///////////// During soft reset
+On host side:
+1. Host: Send '0x00 0x00 0x00 0x00' (4 bytes of NULL)
+2. Host: Read and discard all contents of RX buffer (the controller will wait atleast 1 sec before responding so 'read and discard' before looking for 'READY\n' message is fine)
+3. Controller: On detection of reset bytes, read and discard any contents of RX buffer (NOTE: Might not be necessary as the host is expected to wait for 'READY\n' message and xo not send anything else till then).
+4. Controller: Zero out frame buffer memory (or whatever default frames for soft reset should look like) and reset variables. Sleep for a total of 1 sec (by calculation).
+5. Controller: Send 'READY\n' to host with 'flush()'.
+6. Host: Wait for atleast 2 secs for the controller to respond with 'READY\n'. If this response is NOT got even after this time, fatal error has occurred.
+7. Host: After 'READY\n' is got, prepare and compress a frame to send.
+
+
+////////////// Sending and Receiving frames
+1. Controller: In loop, send 'SYNC\n'.
+2. Host: Wait for 'SYNC\n'. When received, send a frame.
+3. Controller: Display current frame.
+4. Controller: Read RX buffer and decompress to frame buffer for total work time of 300 ms.
+5. Controller: If a complete/more than 1 frame data is received, increment display pointer.
+6. Controller: If display pointer has 
+
