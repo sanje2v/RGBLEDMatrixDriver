@@ -10,7 +10,8 @@
 
 ///////////// During hard reset
 1. Controller: Zero out frame buffer memory (or whatever default frames for hard reset should look like) and initialize variables.
-2. Controller: Send 'READY\n' to host with 'flush()'.
+2. Controller: Read and discard all contents of RX buffer.
+3. Controller: Send 'READY\n' to host with 'flush()'.
 
 
 ///////////// During soft reset

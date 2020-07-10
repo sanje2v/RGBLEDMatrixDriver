@@ -4,26 +4,24 @@
 #include "settings.h"
 #include "patterns.h"
 
-//#include "libraries/Adafruit_NeoPixel_UnmanagedBuffer/Adafruit_NeoPixel_Unmanagedbuf.h"
-
 
 // Defines, function shortnames and Constants
 #define FORCE_INLINE                  __attribute__((always_inline)) inline
 
 
-FORCE_INLINE void fillFramesBufferForHardReset(uint8_t *pFramesBuffer, uint16_t TotalFramesBufferSize)
+FORCE_INLINE void fillFramesBufferForHardReset(uint8_t *pFramesBuffer, uint16_t totalFramesBufferSize)
 {
-  memset(pFramesBuffer, LED_COLOR_CHANNEL_ON, TotalFramesBufferSize);
+  memset(pFramesBuffer, (0xFF / 2), totalFramesBufferSize); // Turn on all LEDs as half bright white
 }
 
-FORCE_INLINE void fillFramesBufferForSoftReset(uint8_t *pFramesBuffer, uint16_t TotalFramesBufferSize)
+FORCE_INLINE void fillFramesBufferForSoftReset(uint8_t *pFramesBuffer, uint16_t totalFramesBufferSize)
 {
-  memset(pFramesBuffer, LED_COLOR_CHANNEL_OFF, TotalFramesBufferSize);
+  memset(pFramesBuffer, 0x00, totalFramesBufferSize);       // Turn off all LEDs
 }
 
-FORCE_INLINE uint8_t incrementFrameDisplayIndex(uint8_t CurrentDisplayFrameIndex, uint8_t TotalFrames)
+FORCE_INLINE uint8_t incrementFrameDisplayIndex(uint8_t frameIndex, uint8_t totalFrames)
 {
-  return (CurrentDisplayFrameIndex + 1) % TotalFrames;
+  return (frameIndex + 1) % totalFrames;
 }
 
 FORCE_INLINE void clearSerialReceiveBuffer()
