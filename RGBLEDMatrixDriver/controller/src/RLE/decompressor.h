@@ -5,7 +5,7 @@
 
 
 // A variant of RLE for compressing 32-bits
-// to 5-bits for color + 3-bits for no. of repeats
+// to 5-bits for color + 3-bits for no. of times
 // for each color channel
 class Decompressor
 {
@@ -14,15 +14,22 @@ private:
 
     uint8_t m_buffer[Decompressor::BUFFER_SIZE];
     uint8_t m_nextBufferWriteIndex;
-    bool m_doSoftReset;
+    uint16_t m_totalBytesDecompressed;
+    bool m_gotInvalidTimesSequence;
+    
+    void resetInvalidTimesSequenceDetector();
     
 public:
     Decompressor();
-    uint16_t feed(uint8_t data,
-                  uint8_t *pFramesBuffer,
-                  uint16_t currentWriteBytePos,
-                  uint16_t totalFramesBufferSize);
-    bool gotSoftResetSequence();
+    void feed(uint8_t data,
+              uint8_t *pFramesBuffer,
+              uint16_t *pCurrentWriteBytePos_Red,
+              uint16_t *pCurrentWriteBytePos_Green,
+              uint16_t *pCurrentWriteBytePos_Blue,
+              uint16_t totalFramesBufferSize);
+    uint16_t getTotalBytesDecompressed();
+    void resetTotalBytesDecompressed();
+    bool gotInvalidTimesSequence();
     void reset();
 };
 

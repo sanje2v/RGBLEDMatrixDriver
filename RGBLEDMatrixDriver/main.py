@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import serial
 import serial.tools.list_ports
@@ -215,8 +216,9 @@ if __name__ == '__main__':
         exit(-1)
 
     is_service = ('--as-service' in sys.argv) and ('--params' in sys.argv)
+    params = None
 
-    app = Application([x.device for x in com_ports], is_service=is_service, params)
+    app = Application([x.device for x in com_ports], is_service, params)
     app.run()
 
     exit(0)

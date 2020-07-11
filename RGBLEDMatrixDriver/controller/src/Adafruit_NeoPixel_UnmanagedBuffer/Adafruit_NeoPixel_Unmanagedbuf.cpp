@@ -69,10 +69,10 @@
               pixel.
   @return  Adafruit_NeoPixel_Unmanagedbuf object. Call the begin() function before use.
 */
-Adafruit_NeoPixel_Unmanagedbuf::Adafruit_NeoPixel_Unmanagedbuf(uint16_t n, uint16_t p, neoPixelType t) :
+Adafruit_NeoPixel_Unmanagedbuf::Adafruit_NeoPixel_Unmanagedbuf(uint16_t n, uint16_t p, neoPixelType t, bool unmanaged) :
   begun(false), brightness(0), pixels(NULL), endTime(0) {
   updateType(t);
-  updateLength(n);
+  updateLength(n, unmanaged);
   setPin(p);
 }
 
@@ -98,7 +98,8 @@ Adafruit_NeoPixel_Unmanagedbuf::Adafruit_NeoPixel_Unmanagedbuf() :
   @brief   Deallocate Adafruit_NeoPixel_Unmanagedbuf object, set data pin back to INPUT.
 */
 Adafruit_NeoPixel_Unmanagedbuf::~Adafruit_NeoPixel_Unmanagedbuf() {
-  free(pixels);
+  if (!unmanagedPixelsMem)
+    free(pixels);
   if(pin >= 0) pinMode(pin, INPUT);
 }
 
@@ -123,17 +124,30 @@ void Adafruit_NeoPixel_Unmanagedbuf::begin(void) {
            'new' keyword with the first constructor syntax (length, pin,
            type).
 */
-void Adafruit_NeoPixel_Unmanagedbuf::updateLength(uint16_t n) {
-  free(pixels); // Free existing data (if any)
+void Adafruit_NeoPixel_Unmanagedbuf::updateLength(uint16_t n, bool unmanaged) {
+  if (!unmanagedPixelsMem)
+    free(pixels); // Free existing data (if any)
 
-  // Allocate new data -- note: ALL PIXELS ARE CLEARED
-  numBytes = n * ((wOffset == rOffset) ? 3 : 4);
-  if((pixels = (uint8_t *)malloc(numBytes))) {
-    memset(pixels, 0, numBytes);
-    numLEDs = n;
-  } else {
-    numLEDs = numBytes = 0;
-  }
+    unmanagedPixelsMem = unmanaged;
+   if (!unmanaged)
+   {
+       // Allocate new data -- note: ALL PIXELS ARE CLEARED
+       numBytes = n * ((wOffset == rOffset) ? 3 : 4);
+       if ((pixels = (uint8_t *)malloc(numBytes)))
+       {
+         memset(pixels, 0, numBytes);
+         numLEDs = n;
+       }
+       else
+       {
+         numLEDs = numBytes = 0;
+       }
+   }
+   else
+   {
+       numLEDs = n;
+       numBytes = n * ((wOffset == rOffset) ? 3 : 4);
+   }
 }
 
 /*!
@@ -168,7 +182,7 @@ void Adafruit_NeoPixel_Unmanagedbuf::updateType(neoPixelType t) {
   // allocated), re-allocate to new size. Will clear any data.
   if(pixels) {
     bool newThreeBytesPerPixel = (wOffset == rOffset);
-    if(newThreeBytesPerPixel != oldThreeBytesPerPixel) updateLength(numLEDs);
+    if(newThreeBytesPerPixel != oldThreeBytesPerPixel) updateLength(numLEDs, false);
   }
 }
 
