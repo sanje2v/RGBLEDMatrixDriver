@@ -6,7 +6,7 @@
  * Written by: Sanjeev Sharma. Copyright 2020.
 */
 
-//#define DEBUG
+#define DEBUG
 
 #include "settings.h"
 #include "utils.h"
@@ -78,12 +78,17 @@ void loop()
       // Check if the host has sent invalid times repeat sequence asking for a soft reset
       if (g_sFrameDecompressor.gotInvalidTimesSequence())
       {
-        Serial.print(F("INFO: Resetting..."));
+        Serial.print(F("INFO: Resetting...\r\n"));
         Serial.flush();
         
         resetStateAndSendReady();   // Do soft reset of internal state
         return;                     // Let 'loop()' function be called again from beginning
       }
+
+      #ifdef DEBUG
+      Serial.print(F("Total bytes decompressed: "));
+      Serial.println(g_sFrameDecompressor.getTotalBytesDecompressed());
+      #endif
       
       // If a complete frame has been received, send host 'SYNC' message to ask for next frame (if any)
       if (g_sFrameDecompressor.getTotalBytesDecompressed() == ONE_FRAME_SIZE)
@@ -95,7 +100,7 @@ void loop()
       }
       else if (g_sFrameDecompressor.getTotalBytesDecompressed() > ONE_FRAME_SIZE)
       {
-        Serial.print(F("ERROR: Received more bytes than required for 1 complete frame."));
+        Serial.print(F("ERROR: Received more bytes than required for 1 complete frame.\r\n"));
         Serial.flush();
 
         resetStateAndSendReady();   // Do soft reset of internal state

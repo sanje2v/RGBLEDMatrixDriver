@@ -14,7 +14,6 @@ import settings
 
 class Application:
     DISPATCHER_QUEUE_CHECK_PERIOD_MS = 200
-    CONTROLLER_RESET_COMMAND = 'RESET\r\n'
 
 
     def __init__(self, ports, is_service, params):
@@ -44,7 +43,7 @@ class Application:
         self.txt_serialoutput.bind("<Key>", lambda e: "break")
 
         # Configure variables
-        self.isControllerInitialized = False
+        self.isControllerReady = False
         self.thread_worker = None
         self.thread_worker_signal = threading.Event()
 
@@ -85,29 +84,15 @@ class Application:
 
         # TEST ONLY
         FRAME_WRITE_OUT_INDEX = 0
-        NUM_FRAMES = 12
-        ONE_FRAME_SIZE = 96
-        NUM_COLORS_PER_DOT = 3
-        FRAMES = [b'\xFF']*(NUM_FRAMES * ONE_FRAME_SIZE)
+        NUM_FRAMES = 20
+        ONE_FRAME_SIZE = 768
+        NUM_COLOR_CHANNELS = 3
+        FRAMES = [[b'\xFF'] * NUM_FRAMES] * ONE_FRAME_SIZE
+        COLOR_WHEEL = [[b'\xF9', b'\x00', b'\x00'], [b'\x00', b'\xF9', b'\x00'], [b'\xF9', b'\x00', b'\x00'], [b'\xF9', b'\xF9', b'\xF9']]
 
         for i in range(0, NUM_FRAMES):
-            for j in range(0, ONE_FRAME_SIZE, NUM_COLORS_PER_DOT):
-                if i < 3:
-                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\x00'    # Red
-                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\xFF'    # Green
-                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\xFF'    # Blue
-                elif i < 6:
-                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\xFF'
-                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\x00'
-                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\xFF'
-                elif i < 9:
-                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\xFF'
-                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\xFF'
-                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\x00'
-                else:
-                    FRAMES[i * ONE_FRAME_SIZE + j + 0] = b'\xFF'
-                    FRAMES[i * ONE_FRAME_SIZE + j + 2] = b'\x00'
-                    FRAMES[i * ONE_FRAME_SIZE + j + 1] = b'\x00'
+            for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
+                FRAMES[i][j:(j+3)] = COLOR_WHEEL[i % len(COLOR_WHEEL)]
 
         assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
 
@@ -120,48 +105,34 @@ class Application:
                 serialToController.reset_output_buffer()
 
                 # Ask controller to reset
-                self.writeToController(serialToController, self.CONTROLLER_RESET_COMMAND)
+                self.writeToController(serialToController, settings.CONTROLLER_RESET_COMMAND)
 
                 # Set the index in FRAME of next frame
-                next_frame_start_position = 0
+                send_frame_index = 0
 
                 while (not self.thread_worker_signal.isSet()):
-                    sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
+                    #sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
 
                     if (serialToController.in_waiting):
                         message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
 
-                        if not self.isControllerInitialized and message == settings.CONTROLLER_INITIALIZED_MESSAGE:
-                            # LED controller is not initialized
-                            self.isControllerInitialized = True
+                        if not self.isControllerReady and message == settings.CONTROLLER_READY_MESSAGE:
+                            # LED controller is now ready after soft reset
+                            self.isControllerReady = True
 
-                            self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller initialized. Ready."))
+                            self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
+
+                            # Send first frame
+                            self.writeToController(serialToController, b''.join(FRAMES[send_frame_index]));
                         
-                        elif self.isControllerInitialized and message.startswith('SYNC'):
-                            to_send = FRAMES[next_frame_start_position:(next_frame_start_position + ONE_FRAME_SIZE)]
-                            assert len(to_send) == ONE_FRAME_SIZE
-                            next_frame_start_position = (next_frame_start_position + ONE_FRAME_SIZE) % len(FRAMES)
-                            to_send = b''.join(to_send)
-                            self.writeToController(serialToController, to_send)
-                                
-                            hasErrorOccurred = False
-                            while (True):
-                                message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
-                                if message.startswith('OK'):
-                                    break
-                                elif message.startswith('ERROR'):
-                                    self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Error occurred!"))
-                                    self.isControllerInitialized = False
-                                    hasErrorOccurred = True
-                                    break
-
-                                sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
-
-                            if hasErrorOccurred:
-                                break
+                        elif self.isControllerReady:
+                            if message.startswith('SYNC'):
+                                self.writeToController(serialToController, FRAMES[send_frame_index]);
+                            elif message.startswith('ERROR'):
+                                raise Exception(message)
 
         except Exception as ex:
-            ex_str = "Exception occurred: {}".format(str(ex))
+            ex_str = "Exception: {}".format(str(ex))
             self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=ex_str))
 
 
@@ -183,9 +154,9 @@ class Application:
 
 
     def btn_reset_click(self):
-        self.isControllerInitialized = False
-        self.lbl_status.configure(text="Reset sent. Waiting for initializing message from controller.")
-        self.worker_dispatcher_queue.append(lambda serialToController: self.writeToController(serialToController, bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8')))
+        self.isControllerReady = False
+        self.lbl_status.configure(text="Reset sent. Waiting for ready message from controller.")
+        self.worker_dispatcher_queue.append(lambda serialToController: self.writeToController(serialToController, settings.CONTROLLER_RESET_COMMAND))
 
 
     def gui_dispatcher(self):
