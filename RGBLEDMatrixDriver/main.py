@@ -120,7 +120,7 @@ class Application:
                 serialToController.reset_output_buffer()
 
                 # Ask controller to reset
-                self.writeToController(serialToController, bytearray(self.CONTROLLER_RESET_COMMAND, 'utf-8'))
+                self.writeToController(serialToController, self.CONTROLLER_RESET_COMMAND)
 
                 # Set the index in FRAME of next frame
                 next_frame_start_position = 0

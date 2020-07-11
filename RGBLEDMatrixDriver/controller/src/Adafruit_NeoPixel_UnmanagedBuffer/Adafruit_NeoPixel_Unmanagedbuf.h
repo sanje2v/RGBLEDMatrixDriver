@@ -202,7 +202,7 @@ class Adafruit_NeoPixel_Unmanagedbuf {
 
   // Constructor: number of LEDs, pin number, LED type
   Adafruit_NeoPixel_Unmanagedbuf(uint16_t n, uint16_t pin,
-    neoPixelType type, bool unmanaged=true);
+    neoPixelType type);
   Adafruit_NeoPixel_Unmanagedbuf(void);
   ~Adafruit_NeoPixel_Unmanagedbuf();
 
@@ -216,7 +216,7 @@ class Adafruit_NeoPixel_Unmanagedbuf {
   void              fill(uint32_t c=0, uint16_t first=0, uint16_t count=0);
   void              setBrightness(uint8_t);
   void              clear(void);
-  void              updateLength(uint16_t n, bool unmanaged);
+  void              updateLength(uint16_t n);
   void              updateType(neoPixelType t);
   /*!
     @brief   Check whether a call to show() will start sending data
@@ -349,7 +349,6 @@ class Adafruit_NeoPixel_Unmanagedbuf {
   int16_t           pin;        ///< Output pin number (-1 if not yet set)
   uint8_t           brightness; ///< Strip brightness 0-255 (stored as +1)
   uint8_t          *pixels;     ///< Holds LED color values (3 or 4 bytes each)
-  bool              unmanagedPixelsMem;///< Tells whose job is to manage pixels memory
   uint8_t           rOffset;    ///< Red index within each 3- or 4-byte pixel
   uint8_t           gOffset;    ///< Index of green byte
   uint8_t           bOffset;    ///< Index of blue byte

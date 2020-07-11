@@ -6,6 +6,8 @@
  * Written by: Sanjeev Sharma. Copyright 2020.
 */
 
+//#define DEBUG
+
 #include "settings.h"
 #include "utils.h"
 
@@ -26,8 +28,7 @@ static uint16_t g_iCurrentWriteBytePos_Red,
 // Static objects
 static Adafruit_NeoPixel_Unmanagedbuf g_sLEDMatrices = Adafruit_NeoPixel_Unmanagedbuf(TOTAL_LEDS,
                                                                                       LED_MATRICES_PWM_PIN,
-                                                                                      NEO_GRB + NEO_KHZ800,
-                                                                                      g_pFramesBuffer);
+                                                                                      NEO_GRB + NEO_KHZ800);
 static Stopwatch g_sStopwatch = Stopwatch();
 static Decompressor g_sFrameDecompressor = Decompressor();
 
@@ -104,7 +105,7 @@ void loop()
   } while(g_sStopwatch.timeit() < TIME_BETWEEN_FRAMES_MS);
   
   g_iCurrentDisplayFrameIndex = (g_iCurrentDisplayFrameIndex + 1) % TOTAL_FRAMES;
-  g_sLEDMatrices.setPixelsPtr(&g_pFramesBuffer[g_iCurrentDisplayFrameIndex]);
+  g_sLEDMatrices.setPixelsPtr(&g_pFramesBuffer[g_iCurrentDisplayFrameIndex * ONE_FRAME_SIZE]);
 }
 
 void resetStateAndSendReady(bool isHardReset)
