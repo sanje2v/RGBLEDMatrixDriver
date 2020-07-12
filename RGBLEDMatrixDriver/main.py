@@ -62,8 +62,10 @@ class Application:
         self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
                                                                  self.gui_dispatcher)
 
-    def writeToController(self, serialToController, data):
+    def writeToController(self, serialToController, data, flush=False):
         serialToController.write(data)
+        if (flush):
+            serialToController.flush()
 
     def thread_worker_func(self, port):
         # Utility function
@@ -83,18 +85,17 @@ class Application:
                 worker_dispatcher_queue.pop(0)(serialToController)
 
         # TEST ONLY
-        FRAME_WRITE_OUT_INDEX = 0
-        NUM_FRAMES = 20
+        NUM_FRAMES = 15
         ONE_FRAME_SIZE = 768
         NUM_COLOR_CHANNELS = 3
-        FRAMES = [[b'\xFF'] * NUM_FRAMES] * ONE_FRAME_SIZE
+        FRAMES = [[b'\xFF'] * ONE_FRAME_SIZE] * NUM_FRAMES
         COLOR_WHEEL = [[b'\xF9', b'\x00', b'\x00'], [b'\x00', b'\xF9', b'\x00'], [b'\xF9', b'\x00', b'\x00'], [b'\xF9', b'\xF9', b'\xF9']]
 
         for i in range(0, NUM_FRAMES):
             for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
                 FRAMES[i][j:(j+3)] = COLOR_WHEEL[i % len(COLOR_WHEEL)]
 
-        assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
+        #assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
@@ -105,7 +106,7 @@ class Application:
                 serialToController.reset_output_buffer()
 
                 # Ask controller to reset
-                self.writeToController(serialToController, settings.CONTROLLER_RESET_COMMAND)
+                self.writeToController(serialToController, settings.CONTROLLER_RESET_COMMAND, flush=True)
 
                 # Set the index in FRAME of next frame
                 send_frame_index = 0
@@ -123,11 +124,16 @@ class Application:
                             self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
 
                             # Send first frame
-                            self.writeToController(serialToController, b''.join(FRAMES[send_frame_index]));
+                            for data in FRAMES[send_frame_index]:
+                                self.writeToController(serialToController, data);
+                                for i in range(10000):
+                                    pass
+                            ++send_frame_index;
                         
                         elif self.isControllerReady:
                             if message.startswith('SYNC'):
                                 self.writeToController(serialToController, FRAMES[send_frame_index]);
+                                send_frame_index = (send_frame_index + 1) % len(FRAMES)
                             elif message.startswith('ERROR'):
                                 raise Exception(message)
 

@@ -10,7 +10,7 @@
 
 FORCE_INLINE void fillFramesBufferForHardReset(uint8_t *pFramesBuffer, uint16_t totalFramesBufferSize)
 {
-  memset(pFramesBuffer, (0xFF / 4), totalFramesBufferSize); // Turn on all LEDs to half brightness white
+  memset(pFramesBuffer, (0xFF / 5), totalFramesBufferSize); // Turn on all LEDs to half brightness white
 }
 
 FORCE_INLINE void fillFramesBufferForSoftReset(uint8_t *pFramesBuffer, uint16_t totalFramesBufferSize)
@@ -20,7 +20,8 @@ FORCE_INLINE void fillFramesBufferForSoftReset(uint8_t *pFramesBuffer, uint16_t 
 
 FORCE_INLINE void clearSerialReceiveBuffer()
 {
-  while (Serial.read() > 0);   // Read and drop bytes in RX buffer
+  while (Serial.read() > -1)
+    delay(10);   // Read and drop bytes in RX buffer
 }
 
 #endif

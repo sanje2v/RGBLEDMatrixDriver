@@ -65,6 +65,11 @@ void loop()
   // Saving incoming data to frame buffer
   do
   {
+    #ifdef DEBUG
+    //Serial.print(F("INFO: Bytes got: "));
+    //Serial.println(Serial.available());
+    #endif
+    
     auto data = Serial.read();
     if (data > -1)  // Check if there is at least one byte of data that has arrived
     {
@@ -74,7 +79,7 @@ void loop()
                                 &g_iCurrentWriteBytePos_Green,
                                 &g_iCurrentWriteBytePos_Blue,
                                 TOTAL_FRAMES_BUFFER_SIZE);
-                                                         
+                                                         Serial.print(F("Hi there\r\n"));
       // Check if the host has sent invalid times repeat sequence asking for a soft reset
       if (g_sFrameDecompressor.gotInvalidTimesSequence())
       {
@@ -86,7 +91,7 @@ void loop()
       }
 
       #ifdef DEBUG
-      Serial.print(F("Total bytes decompressed: "));
+      Serial.print(F("INFO: Total bytes decompressed: "));
       Serial.println(g_sFrameDecompressor.getTotalBytesDecompressed());
       #endif
       
