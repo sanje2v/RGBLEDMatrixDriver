@@ -1,2 +1,2 @@
-8 ms - to send color data to 8x32 LED matrix
+11 ms - to send color data to 8x32 LED matrix
 67 ms - to transmit (or receive?) 768 bytes of 8-bit RGB color data for 8x32 LED matrix at 115200 baud rate

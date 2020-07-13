@@ -6,7 +6,7 @@
  * Written by: Sanjeev Sharma. Copyright 2020.
 */
 
-#define DEBUG
+//#define DEBUG
 
 #include "settings.h"
 #include "utils.h"
@@ -53,25 +53,26 @@ void setup()
 void loop()
 {
   g_sStopwatch.timeit(true);
-  
+
   // Display current frame and increment display frame index
+  // CAUTION: Interrupts are disabled in the following function
+  //          so Serial receive is disabled.
   g_sLEDMatrices.show();
 
   #ifdef DEBUG
   Serial.print(F("INFO: Displaying 1 frame required (ms): "));
   Serial.println(g_sStopwatch.timeit());
   #endif
-
+  
+  // Tell host we are ready to receive frame data
+  Serial.print(SYNC_MESSAGE);
+  Serial.flush();
+  
   // Saving incoming data to frame buffer
   do
   {
-    #ifdef DEBUG
-    //Serial.print(F("INFO: Bytes got: "));
-    //Serial.println(Serial.available());
-    #endif
-    
     auto data = Serial.read();
-    if (data > -1)  // Check if there is at least one byte of data that has arrived
+    if (data > -1)
     {
       g_sFrameDecompressor.feed(static_cast<uint8_t>(data),
                                 g_pFramesBuffer,
@@ -79,7 +80,7 @@ void loop()
                                 &g_iCurrentWriteBytePos_Green,
                                 &g_iCurrentWriteBytePos_Blue,
                                 TOTAL_FRAMES_BUFFER_SIZE);
-                                                         Serial.print(F("Hi there\r\n"));
+      
       // Check if the host has sent invalid times repeat sequence asking for a soft reset
       if (g_sFrameDecompressor.gotInvalidTimesSequence())
       {
@@ -89,30 +90,24 @@ void loop()
         resetStateAndSendReady();   // Do soft reset of internal state
         return;                     // Let 'loop()' function be called again from beginning
       }
-
+      
       #ifdef DEBUG
       Serial.print(F("INFO: Total bytes decompressed: "));
       Serial.println(g_sFrameDecompressor.getTotalBytesDecompressed());
       #endif
-      
-      // If a complete frame has been received, send host 'SYNC' message to ask for next frame (if any)
-      if (g_sFrameDecompressor.getTotalBytesDecompressed() == ONE_FRAME_SIZE)
-      {
-        g_sFrameDecompressor.resetTotalBytesDecompressed();
-        
-        Serial.print(SYNC_MESSAGE);
-        Serial.flush();
-      }
-      else if (g_sFrameDecompressor.getTotalBytesDecompressed() > ONE_FRAME_SIZE)
-      {
-        Serial.print(F("ERROR: Received more bytes than required for 1 complete frame.\r\n"));
-        Serial.flush();
-
-        resetStateAndSendReady();   // Do soft reset of internal state
-        return;                     // Let 'loop()' function be called again from beginning
-      }
     }
-  } while(g_sStopwatch.timeit() < TIME_BETWEEN_FRAMES_MS);
+  } while (g_sStopwatch.timeit() < (TIME_BETWEEN_FRAMES_MS - TIME_DELAY_FOR_STOP_MESSAGE_MS));
+  
+  /*
+  // Ask the host to stop sending frame data as we are going to stop interrupts
+  g_sStopwatch.timeit(true);
+  
+  Serial.print(STOP_MESSAGE);
+  Serial.flush();
+  
+  while(g_sStopwatch.timeit() < TIME_DELAY_FOR_STOP_MESSAGE_MS)
+    __asm__ __volatile__("nop \n"); // NOTE: Even though there's NOP here Serial's interrupt may execute
+  */
   
   g_iCurrentDisplayFrameIndex = (g_iCurrentDisplayFrameIndex + 1) % TOTAL_FRAMES;
   g_sLEDMatrices.setPixelsPtr(&g_pFramesBuffer[g_iCurrentDisplayFrameIndex * ONE_FRAME_SIZE]);
