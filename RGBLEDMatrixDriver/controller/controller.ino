@@ -58,6 +58,9 @@ void loop()
   // CAUTION: Interrupts are disabled in the following function
   //          so Serial receive is disabled.
   g_sLEDMatrices.show();
+  
+  g_iCurrentDisplayFrameIndex = (g_iCurrentDisplayFrameIndex + 1) % TOTAL_FRAMES;
+  g_sLEDMatrices.setPixelsPtr(&g_pFramesBuffer[g_iCurrentDisplayFrameIndex * ONE_FRAME_SIZE]);
 
   #ifdef DEBUG
   Serial.print(F("INFO: Displaying 1 frame required (ms): "));
@@ -96,21 +99,7 @@ void loop()
       Serial.println(g_sFrameDecompressor.getTotalBytesDecompressed());
       #endif
     }
-  } while (g_sStopwatch.timeit() < (TIME_BETWEEN_FRAMES_MS - TIME_DELAY_FOR_STOP_MESSAGE_MS));
-  
-  /*
-  // Ask the host to stop sending frame data as we are going to stop interrupts
-  g_sStopwatch.timeit(true);
-  
-  Serial.print(STOP_MESSAGE);
-  Serial.flush();
-  
-  while(g_sStopwatch.timeit() < TIME_DELAY_FOR_STOP_MESSAGE_MS)
-    __asm__ __volatile__("nop \n"); // NOTE: Even though there's NOP here Serial's interrupt may execute
-  */
-  
-  g_iCurrentDisplayFrameIndex = (g_iCurrentDisplayFrameIndex + 1) % TOTAL_FRAMES;
-  g_sLEDMatrices.setPixelsPtr(&g_pFramesBuffer[g_iCurrentDisplayFrameIndex * ONE_FRAME_SIZE]);
+  } while (g_sStopwatch.timeit() < TIME_BETWEEN_FRAMES_MS);
 }
 
 void resetStateAndSendReady(bool isHardReset)

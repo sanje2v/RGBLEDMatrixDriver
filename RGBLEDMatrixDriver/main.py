@@ -69,14 +69,15 @@ class Application:
 
     def thread_worker_func(self, port):
         # Utility function
-        def getNextMessageAndWriteOut(serialToController, gui_dispatcher_queue, txt_serialoutput):
+        def getNextMessageAndWriteOut(serialToController, gui_dispatcher_queue=None, txt_serialoutput=None):
             # NOTE: We 'deepcopy()' here 'cause another thread will be accessing this data later
             message = deepcopy(serialToController.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)\
                                   .decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)])
             # We push serial data from controller to a queue which will be accessed by GUI thread later to
             # write text safely to GUI text control.
             # NOTE: Tkinter textbox uses '\n' for newline regardless of OS
-            gui_dispatcher_queue.append(lambda: txt_serialoutput.insert(tk.END, message + '\n'))
+            if (gui_dispatcher_queue is not None and txt_serialoutput is not None):
+                gui_dispatcher_queue.append(lambda: txt_serialoutput.insert(tk.END, message + '\n'))
 
             return message
 
@@ -85,25 +86,47 @@ class Application:
                 worker_dispatcher_queue.pop(0)(serialToController)
 
         # TEST ONLY
-        NUM_FRAMES = 15
+        NUM_FRAMES = 20
         ONE_FRAME_SIZE = 768
         NUM_COLOR_CHANNELS = 3
-        FRAMES = [[b'\xFF'] * ONE_FRAME_SIZE] * NUM_FRAMES
-        COLOR_WHEEL = [[b'\xF9', b'\x00', b'\x00'], [b'\x00', b'\xF9', b'\x00'], [b'\xF9', b'\x00', b'\x00'], [b'\xF9', b'\xF9', b'\xF9']]
+        FRAMES = []
+        COLOR_WHEEL = [[b'\xF9', b'\x01', b'\x01'],
+                       [b'\x01', b'\xF9', b'\x01'],
+                       [b'\x01', b'\x01', b'\xF9'],
+                       [b'\xF9', b'\xF9', b'\xF9']]
+
+        for i in range(NUM_FRAMES):
+            COLOR = COLOR_WHEEL[i % len(COLOR_WHEEL)]
+            FRAMES.append([])
+
+            for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
+                for k in range(NUM_COLOR_CHANNELS):
+                    FRAMES[i].append(COLOR[k])
+
+        #for i in range(0, NUM_FRAMES):
+        #    COLOR = COLOR_WHEEL[i % len(COLOR_WHEEL)]
+
+        #    for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
+        #        FRAMES[i][j:(j+NUM_COLOR_CHANNELS+1)] = COLOR
 
         for i in range(0, NUM_FRAMES):
-            for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
-                FRAMES[i][j:(j+3)] = COLOR_WHEEL[i % len(COLOR_WHEEL)]
+            FRAMES[i] = b''.join(FRAMES[i])
 
-        #assert len(FRAMES) % ONE_FRAME_SIZE == 0, "Total bytes in 'FRAMES' must be multiple of one frame size."
+        assert len(FRAMES) == NUM_FRAMES and len(FRAMES[0]) == ONE_FRAME_SIZE, "Total bytes in 'FRAMES' must be multiple of one frame size."
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
         # 2. If 'COMPLETED' message is received from LED controller, next set of frames are written out.
         try:
             with serial.Serial(port=port, **settings.CONTROLLER_COM_PORT_CONFIG) as serialToController:
+                serialToController.set_buffer_size(rx_size=256, tx_size=2048)
+
                 serialToController.reset_input_buffer()
                 serialToController.reset_output_buffer()
+
+                time.sleep(1)
+                while serialToController.in_waiting:
+                    getNextMessageAndWriteOut(serialToController)
 
                 # Ask controller to reset
                 self.writeToController(serialToController, settings.CONTROLLER_RESET_COMMAND, flush=True)
@@ -122,18 +145,12 @@ class Application:
                             self.isControllerReady = True
 
                             self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
-
-                            # Send first frame
-                            for data in FRAMES[send_frame_index]:
-                                self.writeToController(serialToController, data);
-                                for i in range(10000):
-                                    pass
-                            ++send_frame_index;
                         
                         elif self.isControllerReady:
                             if message.startswith('SYNC'):
                                 self.writeToController(serialToController, FRAMES[send_frame_index]);
                                 send_frame_index = (send_frame_index + 1) % len(FRAMES)
+
                             elif message.startswith('ERROR'):
                                 raise Exception(message)
 

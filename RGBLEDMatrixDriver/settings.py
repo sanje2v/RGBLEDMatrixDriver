@@ -4,10 +4,10 @@ import serial
 CONTROLLER_MESSAGE_END_SEQUENCE_BYTES = b'\r\n'
 CONTROLLER_READY_MESSAGE = 'READY'
 CONTROLLER_SYNC_MESSAGE = 'SYNC'
-CONTROLLER_RESET_COMMAND = b'\x00\x00\x00'
+CONTROLLER_RESET_COMMAND = b'\x00'*6
 CONTROLLER_COM_PORT_CONFIG = \
 {
-    'baudrate': 115200,
+    'baudrate': 57600,
     'bytesize': serial.EIGHTBITS,
     'parity': serial.PARITY_NONE,
     'stopbits': serial.STOPBITS_ONE,
