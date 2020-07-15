@@ -16,11 +16,11 @@ FORCE_INLINE void fillFramesBufferForHardReset(uint8_t *pFramesBuffer, uint16_t 
     switch (i % 3)
     {
       case 0:
-        pFramesBuffer[i] = 0x00;
+        pFramesBuffer[i] = 0xFF;
         break;
 
         case 1:
-        pFramesBuffer[i] = 0xFF;
+        pFramesBuffer[i] = 0x00;
         break;
 
         case 2:
@@ -37,10 +37,10 @@ FORCE_INLINE void fillFramesBufferForSoftReset(uint8_t *pFramesBuffer, uint16_t 
 
 FORCE_INLINE void clearSerialReceiveBuffer()
 {
-  delay(TIME_DELAY_CLEAR_RX_BUFFER_CHECK_MS);
-    
-  while (Serial.read() > -1)
-    delay(TIME_DELAY_CLEAR_RX_BUFFER_CHECK_MS);   // Read and drop bytes in RX buffer
+  do
+  {
+    delay(TIME_DELAY_CLEAR_RX_BUFFER_CHECK_MS);
+  } while (Serial.read() > -1);   // Read and drop bytes in RX buffer
 }
 
 #endif

@@ -91,8 +91,11 @@ class Application:
         NUM_COLOR_CHANNELS = 3
         FRAMES = []
         COLOR_WHEEL = [[b'\xF9', b'\x01', b'\x01'],
+                       [b'\xF9', b'\xF9', b'\x01'],
                        [b'\x01', b'\xF9', b'\x01'],
+                       [b'\x01', b'\xF9', b'\xF9'],
                        [b'\x01', b'\x01', b'\xF9'],
+                       [b'\x01', b'\xF9', b'\xF9'],
                        [b'\xF9', b'\xF9', b'\xF9']]
 
         for i in range(NUM_FRAMES):
@@ -102,12 +105,6 @@ class Application:
             for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
                 for k in range(NUM_COLOR_CHANNELS):
                     FRAMES[i].append(COLOR[k])
-
-        #for i in range(0, NUM_FRAMES):
-        #    COLOR = COLOR_WHEEL[i % len(COLOR_WHEEL)]
-
-        #    for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
-        #        FRAMES[i][j:(j+NUM_COLOR_CHANNELS+1)] = COLOR
 
         for i in range(0, NUM_FRAMES):
             FRAMES[i] = b''.join(FRAMES[i])
@@ -148,7 +145,7 @@ class Application:
                         
                         elif self.isControllerReady:
                             if message.startswith('SYNC'):
-                                self.writeToController(serialToController, FRAMES[send_frame_index]);
+                                self.writeToController(serialToController, FRAMES[send_frame_index])
                                 send_frame_index = (send_frame_index + 1) % len(FRAMES)
 
                             elif message.startswith('ERROR'):

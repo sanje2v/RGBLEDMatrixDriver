@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 
-// A variant of RLE for compressing 32-bits
+// A variant of RLE for compressing 24-bits
 // to 5-bits for color + 3-bits for no. of times
 // for each color channel
 class Decompressor

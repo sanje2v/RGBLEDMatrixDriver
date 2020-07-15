@@ -46,20 +46,24 @@ void Decompressor::feed(uint8_t data,
         for (uint8_t i = 0; i < maxTimes; ++i)
         {
             // For each channel, do repeats if we need to
-            if (redTimes > 0)
-            {
-                --redTimes;
-                pFramesBuffer[*pCurrentWriteBytePos_Red] = redByte;
-                
-                *pCurrentWriteBytePos_Red = (*pCurrentWriteBytePos_Red + NUM_COLOR_CHANNELS) % totalFramesBufferSize;
-            }
-            
+            // NOTE: We have reordered writes to match WS2812's
+            //       color byte order. This is predicated on the
+            //       belief that this more sequential write would
+            //       be less taxing on memory writes.
             if (greenTimes > 0)
             {
                 --greenTimes;
                 pFramesBuffer[*pCurrentWriteBytePos_Green] = greenByte;
                 
                 *pCurrentWriteBytePos_Green = (*pCurrentWriteBytePos_Green + NUM_COLOR_CHANNELS) % totalFramesBufferSize;
+            }
+            
+            if (redTimes > 0)
+            {
+                --redTimes;
+                pFramesBuffer[*pCurrentWriteBytePos_Red] = redByte;
+                
+                *pCurrentWriteBytePos_Red = (*pCurrentWriteBytePos_Red + NUM_COLOR_CHANNELS) % totalFramesBufferSize;
             }
             
             if (blueTimes > 0)
@@ -98,6 +102,7 @@ void Decompressor::resetInvalidTimesSequenceDetector()
 
 void Decompressor::reset()
 {
+    this->m_nextBufferWriteIndex = 0;
     this->resetTotalBytesDecompressed();
     this->resetInvalidTimesSequenceDetector();
 }

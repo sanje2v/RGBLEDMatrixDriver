@@ -106,10 +106,12 @@ void resetStateAndSendReady(bool isHardReset)
 {
   // Initialize static variables
   g_iCurrentDisplayFrameIndex = 0;
-  g_iCurrentWriteBytePos_Red = FRAMES_TO_WRITE_AHEAD * ONE_FRAME_SIZE; // Write some frames ahead of current display frame
-  g_iCurrentWriteBytePos_Green = g_iCurrentWriteBytePos_Red + 1;
-  g_iCurrentWriteBytePos_Blue = g_iCurrentWriteBytePos_Green + 1;
-
+  // CAUTION: Because we write directly to frame buffer of WS2812
+  //          which expects data to be in GREEN-RED-BLUE order
+  g_iCurrentWriteBytePos_Green = FRAMES_TO_WRITE_AHEAD * ONE_FRAME_SIZE; // Write some frames ahead of current display frame
+  g_iCurrentWriteBytePos_Red = g_iCurrentWriteBytePos_Green + 1;
+  g_iCurrentWriteBytePos_Blue = g_iCurrentWriteBytePos_Red + 1;
+  
   // Reset frame decompressor's soft reset sequence detector's state
   g_sFrameDecompressor.reset();
   
@@ -118,7 +120,7 @@ void resetStateAndSendReady(bool isHardReset)
     fillFramesBufferForHardReset(g_pFramesBuffer, TOTAL_FRAMES_BUFFER_SIZE);
   else
     fillFramesBufferForSoftReset(g_pFramesBuffer, TOTAL_FRAMES_BUFFER_SIZE);
-  g_sLEDMatrices.setPixelsPtr(g_pFramesBuffer);
+  g_sLEDMatrices.setPixelsPtr(&g_pFramesBuffer[0]);
   
   // Notify host that this LED matrices controller has been initialized
   clearSerialReceiveBuffer();   // NOTE: Sometimes motherboard might send junk bytes in boot. Just to be sure.
