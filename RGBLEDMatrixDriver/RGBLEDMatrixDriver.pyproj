@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>2397b613-283f-4fa0-8300-30acf18af0e4</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main.py</StartupFile>
+    <StartupFile>libs/Compressor/tests.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -12,6 +12,7 @@
     <Name>RGBLEDMatrixDriver</Name>
     <RootNamespace>RGBLEDMatrixDriver</RootNamespace>
     <InterpreterId>MSBuild|env|$(MSBuildProjectFullPath)</InterpreterId>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,6 +23,11 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="libs\Compressor\Compressor.py" />
+    <Compile Include="libs\Compressor\tests.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="libs\Compressor\__init__.py" />
     <Compile Include="settings.py">
       <SubType>Code</SubType>
     </Compile>
@@ -42,7 +48,14 @@
     </Interpreter>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="libs\Compressor\__pycache__\compressor.cpython-36.pyc" />
+    <Content Include="libs\Compressor\__pycache__\__init__.cpython-36.pyc" />
     <Content Include="mainwindow.ui" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="libs\" />
+    <Folder Include="libs\Compressor\" />
+    <Folder Include="libs\Compressor\__pycache__\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

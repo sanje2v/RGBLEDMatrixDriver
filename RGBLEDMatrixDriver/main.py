@@ -9,6 +9,7 @@ import pygubu
 import tkinter as tk
 import tkinter.messagebox as messagebox
 
+from libs.Compressor import Compressor
 import settings
 
 

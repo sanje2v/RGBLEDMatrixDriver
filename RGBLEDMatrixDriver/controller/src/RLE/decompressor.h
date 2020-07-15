@@ -14,7 +14,9 @@ private:
 
     uint8_t m_buffer[Decompressor::BUFFER_SIZE];
     uint8_t m_nextBufferWriteIndex;
+#ifdef DEBUG
     uint16_t m_totalBytesDecompressed;
+#endif
     bool m_gotInvalidTimesSequence;
     
     void resetInvalidTimesSequenceDetector();
@@ -27,8 +29,10 @@ public:
               uint16_t *pCurrentWriteBytePos_Green,
               uint16_t *pCurrentWriteBytePos_Blue,
               uint16_t totalFramesBufferSize);
+#ifdef DEBUG
     uint16_t getTotalBytesDecompressed();
     void resetTotalBytesDecompressed();
+#endif
     bool gotInvalidTimesSequence();
     void reset();
 };

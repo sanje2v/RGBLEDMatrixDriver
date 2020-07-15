@@ -38,8 +38,10 @@ void Decompressor::feed(uint8_t data,
             
             return;
         }
-        else
-            this->m_totalBytesDecompressed += (redTimes + greenTimes + blueTimes);
+        
+        #ifdef DEBUG
+        this->m_totalBytesDecompressed += (redTimes + greenTimes + blueTimes);
+        #endif
         
         const uint8_t NUM_COLOR_CHANNELS = 3;
         uint8_t maxTimes = max(max(redTimes, greenTimes), blueTimes);
@@ -80,6 +82,7 @@ void Decompressor::feed(uint8_t data,
     this->m_nextBufferWriteIndex = (this->m_nextBufferWriteIndex + 1) % BUFFER_SIZE;
 }
 
+#ifdef DEBUG
 uint16_t Decompressor::getTotalBytesDecompressed()
 {
     return this->m_totalBytesDecompressed;
@@ -89,6 +92,7 @@ void Decompressor::resetTotalBytesDecompressed()
 {
     this->m_totalBytesDecompressed = 0;
 }
+#endif
 
 bool Decompressor::gotInvalidTimesSequence()
 {
@@ -103,6 +107,8 @@ void Decompressor::resetInvalidTimesSequenceDetector()
 void Decompressor::reset()
 {
     this->m_nextBufferWriteIndex = 0;
+#ifdef DEBUG
     this->resetTotalBytesDecompressed();
+#endif
     this->resetInvalidTimesSequenceDetector();
 }

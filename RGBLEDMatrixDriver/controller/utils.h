@@ -11,23 +11,6 @@
 FORCE_INLINE void fillFramesBufferForHardReset(uint8_t *pFramesBuffer, uint16_t totalFramesBufferSize)
 {
   memset(pFramesBuffer, (0xFF / 15), totalFramesBufferSize); // Turn on all LEDs to half brightness white
-  /*for (uint16_t i = 0; i < totalFramesBufferSize; ++i)
-  {
-    switch (i % 3)
-    {
-      case 0:
-        pFramesBuffer[i] = 0xFF;
-        break;
-
-        case 1:
-        pFramesBuffer[i] = 0x00;
-        break;
-
-        case 2:
-        pFramesBuffer[i] = 0x00;
-        break;
-    }
-  }*/
 }
 
 FORCE_INLINE void fillFramesBufferForSoftReset(uint8_t *pFramesBuffer, uint16_t totalFramesBufferSize)
