@@ -1,1 +1,1 @@
-from .Compressor import *
+from .Compressor import Compressor

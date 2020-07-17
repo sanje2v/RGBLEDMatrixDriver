@@ -1,6 +1,6 @@
 class Compressor:
     NUM_COLOR_CHANNELS = 3
-    MAX_REPEATS = 8     # For 3 bits to represent repeats
+    MAX_TIMES = 8     # For 3 bits to represent repeats
 
     def feed(self, data):
         data_size = len(data)
@@ -19,13 +19,13 @@ class Compressor:
         def compressChannel(compressed_output,
                             read_index,
                             data_size,
-                            max_repeats=self.MAX_REPEATS,
+                            max_times=self.MAX_TIMES,
                             offset=self.NUM_COLOR_CHANNELS):
             if read_index < data_size:
-                times = 0
+                times = 1
                 next_read_index = read_index + offset
                 while (next_read_index < data_size and \
-                       times < max_repeats and \
+                       (times + 1) < max_times and \
                        data[read_index] == data[next_read_index]):
                     times += 1
 
