@@ -6,10 +6,12 @@ import serial.tools.list_ports
 import threading
 from copy import deepcopy
 import pygubu
+import numpy as np
 import tkinter as tk
 import tkinter.messagebox as messagebox
 
 from libs.Compressor import Compressor
+from funcs.cpugpu_usage import cpugpu_usage
 import settings
 
 
@@ -87,30 +89,42 @@ class Application:
                 worker_dispatcher_queue.pop(0)(serialToController)
 
         # TEST ONLY
-        NUM_FRAMES = 20
-        ONE_FRAME_SIZE = 768
-        NUM_COLOR_CHANNELS = 3
-        FRAMES = []
-        COLOR_WHEEL = [[b'\xF9', b'\x01', b'\x01'],
-                       [b'\xF9', b'\xF9', b'\x01'],
-                       [b'\x01', b'\xF9', b'\x01'],
-                       [b'\x01', b'\xF9', b'\xF9'],
-                       [b'\x01', b'\x01', b'\xF9'],
-                       [b'\x01', b'\xF9', b'\xF9'],
-                       [b'\xF9', b'\xF9', b'\xF9']]
+        #NUM_FRAMES = 20
+        #ONE_FRAME_SIZE = 768
+        #NUM_COLOR_CHANNELS = 3
+        #FRAMES = []
+        #COLOR_WHEEL = [[b'\xF9', b'\x01', b'\x01'],
+        #               [b'\xF9', b'\xF9', b'\x01'],
+        #               [b'\x01', b'\xF9', b'\x01'],
+        #               [b'\x01', b'\xF9', b'\xF9'],
+        #               [b'\x01', b'\x01', b'\xF9'],
+        #               [b'\x01', b'\xF9', b'\xF9'],
+        #               [b'\xF9', b'\xF9', b'\xF9']]
 
-        for i in range(NUM_FRAMES):
-            COLOR = COLOR_WHEEL[i % len(COLOR_WHEEL)]
-            FRAMES.append([])
+        #for i in range(NUM_FRAMES):
+        #    COLOR = COLOR_WHEEL[i % len(COLOR_WHEEL)]
+        #    FRAMES.append([])
 
-            for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
-                for k in range(NUM_COLOR_CHANNELS):
-                    FRAMES[i].append(COLOR[k])
+        #    for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
+        #        for k in range(NUM_COLOR_CHANNELS):
+        #            FRAMES[i].append(COLOR[k])
 
-        for i in range(0, NUM_FRAMES):
-            FRAMES[i] = b''.join(FRAMES[i])
+        #for i in range(0, NUM_FRAMES):
+        #    FRAMES[i] = b''.join(FRAMES[i])
 
-        assert len(FRAMES) == NUM_FRAMES and len(FRAMES[0]) == ONE_FRAME_SIZE, "Total bytes in 'FRAMES' must be multiple of one frame size."
+        #assert len(FRAMES) == NUM_FRAMES and len(FRAMES[0]) == ONE_FRAME_SIZE, "Total bytes in 'FRAMES' must be multiple of one frame size."
+
+        function = cpugpu_usage()
+        frame = None
+        compressor = Compressor()
+
+        frame = compressor.feed(function.get_frame())
+        for i in range(0, len(frame), 3):
+            r = frame[i] & 0x7
+            g = frame[i+1] & 0x7
+            b = frame[i+2] & 0x7
+
+            assert r != 0 or g != 0 or b != 0, "Bad byte found"
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
@@ -143,11 +157,16 @@ class Application:
                             self.isControllerReady = True
 
                             self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
+
+                            frame = compressor.feed(function.get_frame())
                         
                         elif self.isControllerReady:
                             if message.startswith('SYNC'):
-                                self.writeToController(serialToController, FRAMES[send_frame_index])
-                                send_frame_index = (send_frame_index + 1) % len(FRAMES)
+                                self.writeToController(serialToController, frame)
+                                frame = compressor.feed(function.get_frame())
+
+                                #self.writeToController(serialToController, FRAMES[send_frame_index])
+                                #send_frame_index = (send_frame_index + 1) % len(FRAMES)
 
                             elif message.startswith('ERROR'):
                                 raise Exception(message)
