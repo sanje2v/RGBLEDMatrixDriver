@@ -3,8 +3,9 @@ import sys
 import time
 import serial
 import serial.tools.list_ports
+import asyncio
+import serial_asyncio
 import threading
-from copy import deepcopy
 import pygubu
 import numpy as np
 import tkinter as tk
@@ -46,9 +47,8 @@ class Application:
         self.txt_serialoutput.bind("<Key>", lambda e: "break")
 
         # Configure variables
-        self.isControllerReady = False
         self.thread_worker = None
-        self.thread_worker_signal = threading.Event()
+        self.loop = None
 
         # Configure callbacks
         builder.connect_callbacks(self)
@@ -65,22 +65,22 @@ class Application:
         self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
                                                                  self.gui_dispatcher)
 
-    def writeToController(self, serialToController, data, flush=False):
-        serialToController.write(data)
-        if (flush):
-            serialToController.flush()
-
     def thread_worker_func(self, port):
-        # Utility function
-        def getNextMessageAndWriteOut(serialToController, gui_dispatcher_queue=None, txt_serialoutput=None):
-            # NOTE: We 'deepcopy()' here 'cause another thread will be accessing this data later
-            message = deepcopy(serialToController.read_until(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)\
-                                  .decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)])
-            # We push serial data from controller to a queue which will be accessed by GUI thread later to
-            # write text safely to GUI text control.
+        # Utility functions
+        def writeToController(self, serialToController, data, flush=False):
+            serialToController.write(data)
+            if (flush):
+                serialToController.flush()
+
+        def writeOutToUI(message, gui_dispatcher_queue=self.gui_dispatcher_queue, txt_serialoutput=self.txt_serialoutput):
+            # NOTE: The following should do a deep copy which is needed 'cause
+            #       another thread will be accessing this data later
             # NOTE: Tkinter textbox uses '\n' for newline regardless of OS
-            if (gui_dispatcher_queue is not None and txt_serialoutput is not None):
-                gui_dispatcher_queue.append(lambda: txt_serialoutput.insert(tk.END, message + '\n'))
+            message = message + '\n'
+
+            # We push serial data from controller to a queue which will be
+            # accessed by GUI thread later to write text safely to GUI text control
+            gui_dispatcher_queue.append(lambda: txt_serialoutput.insert(tk.END, message))
 
             return message
 
@@ -114,65 +114,99 @@ class Application:
 
         #assert len(FRAMES) == NUM_FRAMES and len(FRAMES[0]) == ONE_FRAME_SIZE, "Total bytes in 'FRAMES' must be multiple of one frame size."
 
-        function = cpugpu_usage()
-        frame = None
-        compressor = Compressor()
-
-        frame = compressor.feed(function.get_frame())
-        for i in range(0, len(frame), 3):
-            r = frame[i] & 0x7
-            g = frame[i+1] & 0x7
-            b = frame[i+2] & 0x7
-
-            assert r != 0 or g != 0 or b != 0, "Bad byte found"
-
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
         # 2. If 'COMPLETED' message is received from LED controller, next set of frames are written out.
         try:
-            with serial.Serial(port=port, **settings.CONTROLLER_COM_PORT_CONFIG) as serialToController:
-                serialToController.set_buffer_size(rx_size=256, tx_size=2048)
+            # Start async serial read write
+            class ControllerSerialHandler(asyncio.Protocol):
+                END_OF_MESSAGE_BYTE = ord('\n')     # In CRLF line ending of a message, LF signifies end-of-message
 
-                serialToController.reset_input_buffer()
-                serialToController.reset_output_buffer()
 
-                time.sleep(1)
-                while serialToController.in_waiting:
-                    getNextMessageAndWriteOut(serialToController)
+                def _handle_message(self, message):
+                    writeOutToUI(message)
 
-                # Ask controller to reset
-                self.writeToController(serialToController, settings.CONTROLLER_RESET_COMMAND, flush=True)
+                    if not self.controller_ready and message == settings.CONTROLLER_READY_MESSAGE:
+                        # LED controller is now ready after soft reset
+                        self.controller_ready = True
 
-                # Set the index in FRAME of next frame
-                send_frame_index = 0
+                        #self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
 
-                while (not self.thread_worker_signal.isSet()):
-                    #sendCommandToControllerIfAny(self.worker_dispatcher_queue, serialToController);
-
-                    if (serialToController.in_waiting):
-                        message = getNextMessageAndWriteOut(serialToController, self.gui_dispatcher_queue, self.txt_serialoutput)
-
-                        if not self.isControllerReady and message == settings.CONTROLLER_READY_MESSAGE:
-                            # LED controller is now ready after soft reset
-                            self.isControllerReady = True
-
-                            self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
-
-                            frame = compressor.feed(function.get_frame())
+                        self.next_frame = compressor.feed(function.get_frame())
                         
-                        elif self.isControllerReady:
-                            if message.startswith('SYNC'):
-                                self.writeToController(serialToController, frame)
-                                frame = compressor.feed(function.get_frame())
+                    elif self.controller_ready:
+                        if message.startswith('SYNC'):
+                            self.transport.write(self.next_frame)
+                            self.next_frame = compressor.feed(function.get_frame())
 
-                                #self.writeToController(serialToController, FRAMES[send_frame_index])
-                                #send_frame_index = (send_frame_index + 1) % len(FRAMES)
+                        elif message.startswith('ERROR'):
+                            raise Exception(message)
 
-                            elif message.startswith('ERROR'):
-                                raise Exception(message)
+                def __init__(self, loop, compressor):
+                    self.controller_ready = False
+                    self.read_buffer = bytearray()
+                    self.transport = None
+
+                    self.loop = loop
+                    self.compressor = compressor
+                    self.next_frame = None
+
+                def connection_made(self, transport):
+                    self.transport = transport
+                    transport.serial.rts = False
+
+                    transport.serial.set_buffer_size(rx_size=256, tx_size=2048)
+
+                    transport.serial.reset_input_buffer()
+                    transport.serial.reset_output_buffer()
+
+                    time.sleep(.1)
+                    while transport.serial.in_waiting:
+                        transport.serial.read(transport.serial.in_waiting)
+
+                    # Ask controller to reset
+                    transport.write(settings.CONTROLLER_RESET_COMMAND)
+
+                def data_received(self, data):
+                    for data_byte in data:
+                        self.read_buffer.append(data_byte)
+
+                        if data_byte == self.END_OF_MESSAGE_BYTE:
+                            message = self.read_buffer.decode('utf-8')[:-len(settings.CONTROLLER_MESSAGE_END_SEQUENCE_BYTES)]
+                            self.read_buffer.clear()
+
+                            # Determine the kind of message received and perform actions accordingly
+                            self._handle_message(message)
+
+                def connection_lost(self, exc):
+                    self.loop.stop()
+
+            
+            function = cpugpu_usage()
+            frame = None
+            compressor = Compressor()
+
+            frame = compressor.feed(function.get_frame())
+            for i in range(0, len(frame), 3):
+                r = frame[i] & 0x7
+                g = frame[i+1] & 0x7
+                b = frame[i+2] & 0x7
+
+                assert r != 0 or g != 0 or b != 0, "Bad byte found"
+
+            self.loop = asyncio.new_event_loop()
+            controller_serialhandler = ControllerSerialHandler(self.loop, compressor)
+            connection = serial_asyncio.create_serial_connection(self.loop,
+                                                                 lambda: controller_serialhandler,
+                                                                 port,
+                                                                 **settings.CONTROLLER_COM_PORT_CONFIG)
+            self.loop.run_until_complete(connection)
+            self.loop.run_forever()
+            self.loop.close()
+            self.loop = None
 
         except Exception as ex:
-            ex_str = "Exception: {}".format(str(ex))
+            ex_str = str(ex)
             self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=ex_str))
 
 
@@ -211,10 +245,9 @@ class Application:
         self.mainwindow.after_cancel(self.dispatcher_queue_checker_id)
         self.mainwindow.destroy()
 
-        if self.thread_worker:
-            self.thread_worker_signal.set()
+        if self.loop is not None:
+            self.loop.stop()
             self.thread_worker.join(2.0)
-
 
     def run(self):
         self.mainwindow.mainloop()

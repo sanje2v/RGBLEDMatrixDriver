@@ -34,7 +34,7 @@ class Compressor:
                 compressed_output.append(data[read_index] | times)
                 read_index = next_read_index
             else:
-                compressed_output.append(0)
+                compressed_output.append(0x00)
 
             return read_index
 
