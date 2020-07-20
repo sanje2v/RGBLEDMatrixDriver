@@ -26,6 +26,12 @@
   <ItemGroup>
     <Compile Include="funcs\cpugpu_usage\cpugpu_usage.py" />
     <Compile Include="funcs\cpugpu_usage\__init__.py" />
+    <Compile Include="funcs\music_visualizer\music_visualizer.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="funcs\music_visualizer\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="libs\Compressor\Compressor.py" />
     <Compile Include="libs\Compressor\tests.py">
       <SubType>Code</SubType>
@@ -57,6 +63,7 @@
   <ItemGroup>
     <Folder Include="funcs\" />
     <Folder Include="funcs\cpugpu_usage\" />
+    <Folder Include="funcs\music_visualizer\" />
     <Folder Include="libs\" />
     <Folder Include="libs\Compressor\" />
     <Folder Include="libs\Compressor\__pycache__\" />

@@ -9,7 +9,7 @@ class cpugpu_usage:
     MAX_LINE_LENGTH_PX = 25
     LINE_WIDTH = 2
     LINE_START_FROM_END = -2
-    NUM_WIDTH_PX, NUM_HEIGHT_PX = (32, 8)
+
 
     def __init__(self):
         # Need to load template image
