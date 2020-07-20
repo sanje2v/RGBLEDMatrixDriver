@@ -151,6 +151,9 @@ class Application:
                     self.compressor = compressor
                     self.next_frame = None
 
+                def get_transport(self):
+                    return self.transport
+
                 def connection_made(self, transport):
                     self.transport = transport
                     transport.serial.rts = False
@@ -196,12 +199,16 @@ class Application:
 
             self.loop = asyncio.new_event_loop()
             controller_serialhandler = ControllerSerialHandler(self.loop, compressor)
-            connection = serial_asyncio.create_serial_connection(self.loop,
-                                                                 lambda: controller_serialhandler,
-                                                                 port,
-                                                                 **settings.CONTROLLER_COM_PORT_CONFIG)
-            self.loop.run_until_complete(connection)
+            conn = serial_asyncio.create_serial_connection(self.loop,
+                                                           lambda: controller_serialhandler,
+                                                           port,
+                                                           **settings.CONTROLLER_COM_PORT_CONFIG)
+            self.loop.run_until_complete(conn)
             self.loop.run_forever()
+            if controller_serialhandler.get_transport() is not None:
+                  # Ask controller to reset before exit
+                controller_serialhandler.get_transport().serial.write(settings.CONTROLLER_RESET_COMMAND)
+                controller_serialhandler.get_transport().serial.flush()
             self.loop.close()
             self.loop = None
 
