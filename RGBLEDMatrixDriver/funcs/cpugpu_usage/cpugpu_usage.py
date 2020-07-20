@@ -1,6 +1,6 @@
 import imageio
 import psutil
-import GPUtil
+import pynvml as nvml   # Python wrapper around NVIDIA NVML DLL
 import numpy as np
 from copy import deepcopy
 
@@ -15,15 +15,18 @@ class cpugpu_usage:
         # Need to load template image
         self.template = imageio.imread('./funcs/cpugpu_usage/template.bmp')
 
-        # CAUTION: Need to call CPU usage function at least once
+        # CAUTION: Need to call usage functions at least once
         #          before calling it in 'get_frame()'
         self.cpu_usage_percent = psutil.cpu_percent()
-        self.gpu_usage_percent = GPUtil.getGPUs()[0].load * 100.0
+
+        nvml.nvmlInit()  # CAUTION: Must be called before any other nvml functions
+        self.selected_gpu = nvml.nvmlDeviceGetHandleByIndex(0)
+        self.gpu_usage_percent = nvml.nvmlDeviceGetUtilizationRates(self.selected_gpu).gpu
 
     def get_frame(self):
         # Get CPU and GPU usage percentages
         self.cpu_usage_percent = psutil.cpu_percent()
-        self.gpu_usage_percent = GPUtil.getGPUs()[0].load * 100.0
+        self.gpu_usage_percent = nvml.nvmlDeviceGetUtilizationRates(self.selected_gpu).gpu
 
         # Create a deep copy of template to work on
         frame = deepcopy(self.template)
