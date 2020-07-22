@@ -1,28 +1,89 @@
 import pyaudio
 from pyaudio import PyAudio
 import numpy as np
+import math
 from copy import deepcopy
 
 
 class music_visualizer:
     FRAME_WIDTH, FRAME_HEIGHT = (8, 32)
     NUM_COLOR_CHANNELS = 3
-    NUM_AUDIO_FRAMES_PER_BUFFER = 512
+    NUM_AUDIO_CHANNELS = 2
+    NUM_AUDIO_FRAMES_PER_BUFFER = 2**math.ceil(math.log2(FRAME_HEIGHT * 2))
+    # NOTE: Thanks to 'http://www.perbang.dk/rgbgradient/' for HSV gradient wheel color generation
+    #       Start color: FF293B, End Color: 01156A
+    COLOR_GRADIENT_WHEEL = \
+        ['FF283B', 'FA2F27', 'F54725', 'F05F23', 'EB7521', 'E68B1F', 'E2A11D', 'DDB51C',
+         'D8C91A', 'CBD318', 'AFCE17', '94CA15', '7AC514', '61C012', '48BB11', '31B610',
+         '1AB20E', '0DAD15', '0CA827', '0BA339', '0A9E49', '089A59', '079567', '079075',
+         '068B82', '057F86', '046B82', '03577D', '024578', '023473', '01246E', '00146A']
+
+
+    def _readAudioStreamIntoBuffer(self, stream, frames_per_buffer, sample_size, signed):
+        # Read raw bytes from stream
+        audio_frames = stream.read(frames_per_buffer)
+        assert len(audio_frames) > 0, "No audio frame returned"
+    
+        # Convert it to proper sample size
+        output_audio_frames = [0] * (self.NUM_AUDIO_CHANNELS * frames_per_buffer)
+        for i in range(0, len(audio_frames), sample_size):
+            output_audio_frames[i // sample_size] = int.from_bytes(audio_frames[i:i+sample_size],
+                                                                   byteorder='little',
+                                                                   signed=signed)
+    
+        return output_audio_frames
+
+    def _getChannelData(self, audio_frames, channel):
+        assert channel < self.NUM_AUDIO_CHANNELS, "'channel' parameter can only be either 0 for left or 1 for right channel."
+    
+        channel_data = [0] * (len(audio_frames) // 2)
+    
+        for i in range(channel, len(audio_frames), 2):
+            channel_data[i // 2] = audio_frames[i]
+    
+        return channel_data
+
+    def _getFFTAmplitudes(self, audio_frames, n):
+        audio_frames = (np.abs(np.fft.fft(audio_frames, n=n))[0:(n // 2)]) / n
+        assert len(audio_frames) == (n // 2), "BUG: 'getFFT()' must return DC and positive frequencies."
+    
+        return audio_frames
+
+    def _scaleFFTAmplitudes(self, fft_amplitudes, max_limit):
+        #MAGIC_NUMBER = 1000.
+        #fft_amplitudes = [int(np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit) for x in fft_amplitudes]
+        scaler_func = lambda x: min(max(math.log(x + 0.00001), 0.0) / 10.0 * max_limit, max_limit)
+        fft_amplitudes = list(map(lambda x: int(scaler_func(x)), fft_amplitudes))
+
+        assert all((x >= 0 and x <= (self.FRAME_WIDTH // 2)) for x in fft_amplitudes), "FFT Amplitude scaling is buggy."
+
+        return fft_amplitudes
 
 
     def __init__(self, audio_device_index):
-        self.template = np.zeros((self.FRAME_WIDTH, self.FRAME_HEIGHT, self.NUM_COLOR_CHANNELS),
+        assert len(self.COLOR_GRADIENT_WHEEL) == self.FRAME_HEIGHT, \
+            "Need exactly {} colors in 'COLOR_GRADIENT_WHEEL'".format(self.FRAME_HEIGHT)
+        # Convert hex string (for easy programmer modification) to bytearrays in 'COLOR_GRADIENT_WHEEL'
+        for i, color_str in enumerate(self.COLOR_GRADIENT_WHEEL):
+            self.COLOR_GRADIENT_WHEEL[i] = np.frombuffer(bytes.fromhex(color_str), dtype=np.uint8)
+
+        self.template = np.zeros((self.FRAME_HEIGHT, self.FRAME_WIDTH, self.NUM_COLOR_CHANNELS),
                                  dtype=np.uint8)
         self.pyaudio = PyAudio()
-
         self.audio_device_info = self.pyaudio.get_device_info_by_index(audio_device_index)
-        self.stream = self.pyaudio.open(format=pyaudio.paInt16,
-                                        channels=min(2, self.audio_device_info['maxOutputChannels']),
+        if self.audio_device_info['maxOutputChannels'] < self.NUM_AUDIO_CHANNELS:
+            raise Exception("Audio output device should be at least stereo.")
+
+        self.format = pyaudio.paInt16
+        self.sample_size = pyaudio.get_sample_size(self.format)
+        self.stream = self.pyaudio.open(format=self.format,
+                                        channels=self.NUM_AUDIO_CHANNELS,
                                         rate=int(self.audio_device_info["defaultSampleRate"]),
                                         input=True,
                                         frames_per_buffer=self.NUM_AUDIO_FRAMES_PER_BUFFER,
                                         input_device_index=audio_device_index,
                                         as_loopback=True)
+        self.stream.read(self.NUM_AUDIO_FRAMES_PER_BUFFER)   # Get stream reading started
 
     def __enter__(self):
         return self
@@ -34,10 +95,28 @@ class music_visualizer:
         self.pyaudio.terminate()
 
     def get_frame(self):
+        # Read stereo audio data
+        audio_frames = self._readAudioStreamIntoBuffer(self.stream, self.NUM_AUDIO_FRAMES_PER_BUFFER, self.sample_size, signed=True)
+
+        # Get FFT Amplitudes of each channel and rescale them from 0 to 'FRAME_WIDTH // 2'
+        left_channel_FFTAmp = self._getFFTAmplitudes(self._getChannelData(audio_frames, channel=0), n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
+        left_channel_FFTAmp = self._scaleFFTAmplitudes(left_channel_FFTAmp, self.FRAME_WIDTH // 2)
+        right_channel_FFTAmp = self._getFFTAmplitudes(self._getChannelData(audio_frames, channel=1), n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
+        right_channel_FFTAmp = self._scaleFFTAmplitudes(right_channel_FFTAmp, self.FRAME_WIDTH // 2)
+
         # Create a deep copy of template to work on
         frame = deepcopy(self.template)
 
-        audio_data = self.stream.read(self.stream.get_read_available())
-        audio_data_fft = np.abs(np.fft(audio_data, n=self.FRAME_HEIGHT))
+        # Draw rescaled amplitude bars on to 'frame'
+        for i in range(self.FRAME_HEIGHT):
+            # For left channel
+            FFTAmp = left_channel_FFTAmp[i]
+            if FFTAmp > 0:
+                frame[i, 0:FFTAmp, :] = self.COLOR_GRADIENT_WHEEL[i]
 
-        return frame
+            # For right channel
+            FFTAmp = right_channel_FFTAmp[i]
+            if FFTAmp > 0:
+                frame[-(i+1), -1:-(FFTAmp+1):-1, :] = self.COLOR_GRADIENT_WHEEL[-(i+1)]
+
+        return frame.flatten()
