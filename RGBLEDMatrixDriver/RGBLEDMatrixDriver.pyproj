@@ -12,7 +12,7 @@
     <Name>RGBLEDMatrixDriver</Name>
     <RootNamespace>RGBLEDMatrixDriver</RootNamespace>
     <InterpreterId>MSBuild|env|$(MSBuildProjectFullPath)</InterpreterId>
-    <IsWindowsApplication>False</IsWindowsApplication>
+    <IsWindowsApplication>True</IsWindowsApplication>
     <TestFramework>Pytest</TestFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

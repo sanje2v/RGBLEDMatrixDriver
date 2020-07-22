@@ -49,7 +49,7 @@ class Application:
 
         # Configure variables
         self.thread_worker = None
-        self.loop = None
+        self.event_loop = None
 
         # Configure callbacks
         builder.connect_callbacks(self)
@@ -143,12 +143,12 @@ class Application:
                         elif message.startswith('ERROR'):
                             raise Exception(message)
 
-                def __init__(self, loop, compressor):
+                def __init__(self, event_loop, compressor):
                     self.controller_ready = False
                     self.read_buffer = bytearray()
                     self.transport = None
 
-                    self.loop = loop
+                    self.event_loop = event_loop
                     self.compressor = compressor
                     self.next_frame = None
 
@@ -183,7 +183,7 @@ class Application:
                             self._handle_message(message)
 
                 def connection_lost(self, exc):
-                    self.loop.stop()
+                    self.event_loop.stop()
 
             with music_visualizer(8) as function:#cpugpu_usage() as function: 
                 frame = None
@@ -197,20 +197,20 @@ class Application:
 
                     assert r != 0 or g != 0 or b != 0, "Bad byte found"
 
-                self.loop = asyncio.new_event_loop()
-                controller_serialhandler = ControllerSerialHandler(self.loop, compressor)
-                conn = serial_asyncio.create_serial_connection(self.loop,
+                self.event_loop = asyncio.new_event_loop()
+                controller_serialhandler = ControllerSerialHandler(self.event_loop, compressor)
+                conn = serial_asyncio.create_serial_connection(self.event_loop,
                                                                lambda: controller_serialhandler,
                                                                port,
                                                                **settings.CONTROLLER_COM_PORT_CONFIG)
-                self.loop.run_until_complete(conn)
-                self.loop.run_forever()
+                self.event_loop.run_until_complete(conn)
+                self.event_loop.run_forever()
                 if controller_serialhandler.get_transport() is not None:
                     # Ask controller to reset before exit
                     controller_serialhandler.get_transport().serial.write(settings.CONTROLLER_RESET_COMMAND)
                     controller_serialhandler.get_transport().serial.flush()
-                self.loop.close()
-                self.loop = None
+                self.event_loop.close()
+                self.event_loop = None
 
         except Exception as ex:
             ex_str = str(ex)
@@ -252,8 +252,8 @@ class Application:
         self.mainwindow.after_cancel(self.dispatcher_queue_checker_id)
         self.mainwindow.destroy()
 
-        if self.loop is not None:
-            self.loop.stop()
+        if self.event_loop is not None:
+            self.event_loop.stop()
             self.thread_worker.join(2.0)
 
     def run(self):

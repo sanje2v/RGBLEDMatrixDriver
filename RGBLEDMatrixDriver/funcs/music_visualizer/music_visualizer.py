@@ -2,7 +2,7 @@ import pyaudio
 from pyaudio import PyAudio
 import numpy as np
 import math
-from copy import deepcopy
+from copy import copy, deepcopy
 
 
 class music_visualizer:
@@ -19,11 +19,7 @@ class music_visualizer:
          '068B82', '057F86', '046B82', '03577D', '024578', '023473', '01246E', '00146A']
 
 
-    def _readAudioStreamIntoBuffer(self, stream, frames_per_buffer, sample_size, signed):
-        # Read raw bytes from stream
-        audio_frames = stream.read(frames_per_buffer)
-        assert len(audio_frames) > 0, "No audio frame returned"
-    
+    def _readRawAudioDataIntoAudioFrames(self, audio_frames, frames_per_buffer, sample_size, signed):
         # Convert it to proper sample size
         output_audio_frames = [0] * (self.NUM_AUDIO_CHANNELS * frames_per_buffer)
         for i in range(0, len(audio_frames), sample_size):
@@ -50,9 +46,10 @@ class music_visualizer:
         return audio_frames
 
     def _scaleFFTAmplitudes(self, fft_amplitudes, max_limit):
-        #MAGIC_NUMBER = 1000.
+        MAGIC_NUMBER = 1000.
         #fft_amplitudes = [int(np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit) for x in fft_amplitudes]
-        scaler_func = lambda x: min(max(math.log(x + 0.00001), 0.0) / 10.0 * max_limit, max_limit)
+        #scaler_func = lambda x: min(max(math.log(x + 0.00001), 0.0) / 10.0 * max_limit, max_limit)
+        scaler_func = lambda x: np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit
         fft_amplitudes = list(map(lambda x: int(scaler_func(x)), fft_amplitudes))
 
         assert all((x >= 0 and x <= (self.FRAME_WIDTH // 2)) for x in fft_amplitudes), "FFT Amplitude scaling is buggy."
@@ -76,16 +73,23 @@ class music_visualizer:
 
         self.format = pyaudio.paInt16
         self.sample_size = pyaudio.get_sample_size(self.format)
-        self.stream = self.pyaudio.open(format=self.format,
-                                        channels=self.NUM_AUDIO_CHANNELS,
-                                        rate=int(self.audio_device_info["defaultSampleRate"]),
-                                        input=True,
-                                        frames_per_buffer=self.NUM_AUDIO_FRAMES_PER_BUFFER,
-                                        input_device_index=audio_device_index,
-                                        as_loopback=True)
-        self.stream.read(self.NUM_AUDIO_FRAMES_PER_BUFFER)   # Get stream reading started
+        self.stream = None
+        self.raw_audio_frames = b'\x00' * (self.NUM_AUDIO_CHANNELS * self.NUM_AUDIO_FRAMES_PER_BUFFER * self.sample_size)
 
     def __enter__(self):
+        def audiodata_arrived(data, frame_count, time_info, status):
+            assert frame_count == self.NUM_AUDIO_FRAMES_PER_BUFFER, "Assumption that callback returns "
+            self.raw_audio_frames = data
+            return (data, pyaudio.paContinue)
+
+        self.stream = self.pyaudio.open(format=self.format,
+                                        channels=self.NUM_AUDIO_CHANNELS,
+                                        rate=int(self.audio_device_info['defaultSampleRate']),
+                                        input=True,
+                                        frames_per_buffer=self.NUM_AUDIO_FRAMES_PER_BUFFER,
+                                        input_device_index=self.audio_device_info['index'],
+                                        stream_callback=audiodata_arrived,
+                                        as_loopback=True)
         return self
 
     def __exit__(self, type, value, traceback):
@@ -95,8 +99,7 @@ class music_visualizer:
         self.pyaudio.terminate()
 
     def get_frame(self):
-        # Read stereo audio data
-        audio_frames = self._readAudioStreamIntoBuffer(self.stream, self.NUM_AUDIO_FRAMES_PER_BUFFER, self.sample_size, signed=True)
+        audio_frames = self._readRawAudioDataIntoAudioFrames(copy(self.raw_audio_frames), self.NUM_AUDIO_FRAMES_PER_BUFFER, self.sample_size, True)
 
         # Get FFT Amplitudes of each channel and rescale them from 0 to 'FRAME_WIDTH // 2'
         left_channel_FFTAmp = self._getFFTAmplitudes(self._getChannelData(audio_frames, channel=0), n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
@@ -117,6 +120,6 @@ class music_visualizer:
             # For right channel
             FFTAmp = right_channel_FFTAmp[i]
             if FFTAmp > 0:
-                frame[-(i+1), -1:-(FFTAmp+1):-1, :] = self.COLOR_GRADIENT_WHEEL[-(i+1)]
+                frame[-(i+1), -1:-(FFTAmp+1):-1, :] = self.COLOR_GRADIENT_WHEEL[i]
 
         return frame.flatten()

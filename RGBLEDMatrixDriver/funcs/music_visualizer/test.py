@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import imageio
 import math
 from copy import deepcopy
+import time
 
 
 def readAudioStreamIntoBuffer(stream, frames_per_buffer, sample_size, signed):
@@ -60,26 +61,32 @@ sample_size = pyaudio.get_sample_size(format)
 frames_per_buffer = 2**math.ceil(math.log2(FRAME_HEIGHT * 2))
 stream = None
 try:
+    def callback(data, frame_count, time_info, status):
+        print(frame_count)
+        return (data, pa.paContinue)
+
     stream = pyaudio.open(format=format,
                             channels=2,
                             rate=int(audio_device_info["defaultSampleRate"]),
                             input=True,
                             frames_per_buffer=frames_per_buffer,
                             input_device_index=audio_device_index,
+                            stream_callback=callback,
                             as_loopback=True)
     print(dir(stream))
 
-    audio_frames = readAudioStreamIntoBuffer(stream, frames_per_buffer, sample_size, signed=True)
-    #print(audio_frames)
+    #audio_frames = readAudioStreamIntoBuffer(stream, frames_per_buffer, sample_size, signed=True)
+    ##print(audio_frames)
 
-    left_channel_FFTAmp = getFFTAmplitudes(getChannelData(audio_frames, channel=0), n=frames_per_buffer)[:FRAME_HEIGHT]
-    left_channel_FFTAmp = scaleFFTAmplitudes(left_channel_FFTAmp, FRAME_WIDTH // 2)
-    right_channel_FFTAmp = getFFTAmplitudes(getChannelData(audio_frames, channel=1), n=frames_per_buffer)[:FRAME_HEIGHT]
-    right_channel_FFTAmp = scaleFFTAmplitudes(right_channel_FFTAmp, FRAME_WIDTH // 2)
-    print()
-    print(left_channel_FFTAmp)
-    print()
-    print(right_channel_FFTAmp)
+    #left_channel_FFTAmp = getFFTAmplitudes(getChannelData(audio_frames, channel=0), n=frames_per_buffer)[:FRAME_HEIGHT]
+    #left_channel_FFTAmp = scaleFFTAmplitudes(left_channel_FFTAmp, FRAME_WIDTH // 2)
+    #right_channel_FFTAmp = getFFTAmplitudes(getChannelData(audio_frames, channel=1), n=frames_per_buffer)[:FRAME_HEIGHT]
+    #right_channel_FFTAmp = scaleFFTAmplitudes(right_channel_FFTAmp, FRAME_WIDTH // 2)
+    #print()
+    #print(left_channel_FFTAmp)
+    #print()
+    #print(right_channel_FFTAmp)
+    time.sleep(2.0)
 
 finally:
     if stream:
