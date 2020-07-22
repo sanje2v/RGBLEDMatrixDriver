@@ -17,9 +17,6 @@ private:
 #ifdef DEBUG
     uint16_t m_totalBytesDecompressed;
 #endif
-    bool m_gotInvalidTimesSequence;
-    
-    void resetInvalidTimesSequenceDetector();
     
 public:
     Decompressor();
@@ -33,7 +30,6 @@ public:
     uint16_t getTotalBytesDecompressed();
     void resetTotalBytesDecompressed();
 #endif
-    bool gotInvalidTimesSequence();
     void reset();
 };
 

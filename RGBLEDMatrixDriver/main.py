@@ -13,6 +13,7 @@ import tkinter.messagebox as messagebox
 
 from libs.Compressor import Compressor
 from funcs.cpugpu_usage import cpugpu_usage
+from funcs.music_visualizer import music_visualizer
 import settings
 
 
@@ -184,33 +185,32 @@ class Application:
                 def connection_lost(self, exc):
                     self.loop.stop()
 
-            
-            function = cpugpu_usage()
-            frame = None
-            compressor = Compressor()
+            with music_visualizer(8) as function:#cpugpu_usage() as function: 
+                frame = None
+                compressor = Compressor()
 
-            frame = compressor.feed(function.get_frame())
-            for i in range(0, len(frame), 3):
-                r = frame[i] & 0x7
-                g = frame[i+1] & 0x7
-                b = frame[i+2] & 0x7
+                frame = compressor.feed(function.get_frame())
+                for i in range(0, len(frame), 3):
+                    r = frame[i] & 0x7
+                    g = frame[i+1] & 0x7
+                    b = frame[i+2] & 0x7
 
-                assert r != 0 or g != 0 or b != 0, "Bad byte found"
+                    assert r != 0 or g != 0 or b != 0, "Bad byte found"
 
-            self.loop = asyncio.new_event_loop()
-            controller_serialhandler = ControllerSerialHandler(self.loop, compressor)
-            conn = serial_asyncio.create_serial_connection(self.loop,
-                                                           lambda: controller_serialhandler,
-                                                           port,
-                                                           **settings.CONTROLLER_COM_PORT_CONFIG)
-            self.loop.run_until_complete(conn)
-            self.loop.run_forever()
-            if controller_serialhandler.get_transport() is not None:
-                  # Ask controller to reset before exit
-                controller_serialhandler.get_transport().serial.write(settings.CONTROLLER_RESET_COMMAND)
-                controller_serialhandler.get_transport().serial.flush()
-            self.loop.close()
-            self.loop = None
+                self.loop = asyncio.new_event_loop()
+                controller_serialhandler = ControllerSerialHandler(self.loop, compressor)
+                conn = serial_asyncio.create_serial_connection(self.loop,
+                                                               lambda: controller_serialhandler,
+                                                               port,
+                                                               **settings.CONTROLLER_COM_PORT_CONFIG)
+                self.loop.run_until_complete(conn)
+                self.loop.run_forever()
+                if controller_serialhandler.get_transport() is not None:
+                    # Ask controller to reset before exit
+                    controller_serialhandler.get_transport().serial.write(settings.CONTROLLER_RESET_COMMAND)
+                    controller_serialhandler.get_transport().serial.flush()
+                self.loop.close()
+                self.loop = None
 
         except Exception as ex:
             ex_str = str(ex)

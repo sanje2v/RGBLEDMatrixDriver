@@ -30,15 +30,6 @@ void Decompressor::feed(uint8_t data,
         auto blueByte = (this->m_buffer[2] & 0xF8);
         auto blueTimes = (this->m_buffer[2] & 0x07);
         
-        if (redTimes == 0 && greenTimes == 0 && blueTimes == 0)
-        {
-            // This is an invalid sequence, so we set a flag and
-            // don't do anything else
-            this->m_gotInvalidTimesSequence = true;
-            
-            return;
-        }
-        
         #ifdef DEBUG
         this->m_totalBytesDecompressed += (redTimes + greenTimes + blueTimes);
         #endif
@@ -94,21 +85,10 @@ void Decompressor::resetTotalBytesDecompressed()
 }
 #endif
 
-bool Decompressor::gotInvalidTimesSequence()
-{
-    return this->m_gotInvalidTimesSequence;
-}
-
-void Decompressor::resetInvalidTimesSequenceDetector()
-{
-    this->m_gotInvalidTimesSequence = false;
-}
-
 void Decompressor::reset()
 {
     this->m_nextBufferWriteIndex = 0;
 #ifdef DEBUG
     this->resetTotalBytesDecompressed();
 #endif
-    this->resetInvalidTimesSequenceDetector();
 }

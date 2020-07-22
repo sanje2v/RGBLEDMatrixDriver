@@ -16,7 +16,7 @@
 #define TOTAL_FRAMES_BUFFER_SIZE              (TOTAL_FRAMES * ONE_FRAME_SIZE)   // NOTE: For 4 matrices, this allows for 12 frames
 #define LED_MATRICES_PWM_PIN                  0               // NOTE: Called P0 but actually is the first pin
 #define FRAMES_TO_WRITE_AHEAD                 1               // In state reinitialized, position write pointer ahead to amount
-#define TIME_BETWEEN_FRAMES_MS                500
+#define DEFAULT_TIME_BETWEEN_FRAMES_MS        500
 #define TIME_DELAY_CLEAR_RX_BUFFER_CHECK_MS   10
 
 #endif

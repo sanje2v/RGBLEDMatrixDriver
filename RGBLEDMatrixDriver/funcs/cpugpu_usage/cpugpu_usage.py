@@ -23,6 +23,12 @@ class cpugpu_usage:
         self.selected_gpu = nvml.nvmlDeviceGetHandleByIndex(0)
         self.gpu_usage_percent = nvml.nvmlDeviceGetUtilizationRates(self.selected_gpu).gpu
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        pass
+
     def get_frame(self):
         # Get CPU and GPU usage percentages
         self.cpu_usage_percent = psutil.cpu_percent()

@@ -24,6 +24,7 @@ static uint8_t g_iCurrentDisplayFrameIndex;
 static uint16_t g_iCurrentWriteBytePos_Red,
                 g_iCurrentWriteBytePos_Green,
                 g_iCurrentWriteBytePos_Blue;
+static uint16_t g_IntervalBetweenFrames;
 
 // Static objects
 static Adafruit_NeoPixel_Unmanagedbuf g_sLEDMatrices = Adafruit_NeoPixel_Unmanagedbuf(TOTAL_LEDS,
@@ -35,7 +36,7 @@ static Decompressor g_sFrameDecompressor = Decompressor();
 // Function prototypes
 void setup();
 void loop();
-void resetStateAndSendReady(bool=false);
+void resetStateAndSendReady(bool, uint16_t=DEFAULT_TIME_BETWEEN_FRAMES_MS);
 
 
 //////////////////////////// Start here
@@ -77,32 +78,37 @@ void loop()
     auto data = Serial.read();
     if (data > -1)
     {
-      g_sFrameDecompressor.feed(static_cast<uint8_t>(data),
+      auto data_byte = static_cast<uint8_t>(data);
+      
+      // Check if the host has sent invalid times repeat sequence asking for a soft reset
+      // NOTE: Using special byte, the host can command this controller
+      //       to reset while simultenously specify a time between frames
+      if (isResetCommand(data_byte))
+      {
+        Serial.print(F("INFO: Resetting...\r\n"));
+        Serial.flush();
+        
+        resetStateAndSendReady(false,
+                               getIntervalInCommand(data_byte));  // Do soft reset of internal state
+        return;                                                   // Let 'loop()' function be called again from beginning
+      }
+      
+      g_sFrameDecompressor.feed(data_byte,
                                 g_pFramesBuffer,
                                 &g_iCurrentWriteBytePos_Red,
                                 &g_iCurrentWriteBytePos_Green,
                                 &g_iCurrentWriteBytePos_Blue,
                                 TOTAL_FRAMES_BUFFER_SIZE);
       
-      // Check if the host has sent invalid times repeat sequence asking for a soft reset
-      if (g_sFrameDecompressor.gotInvalidTimesSequence())
-      {
-        Serial.print(F("INFO: Resetting...\r\n"));
-        Serial.flush();
-        
-        resetStateAndSendReady();   // Do soft reset of internal state
-        return;                     // Let 'loop()' function be called again from beginning
-      }
-      
       #ifdef DEBUG
       Serial.print(F("INFO: Total bytes decompressed: "));
       Serial.println(g_sFrameDecompressor.getTotalBytesDecompressed());
       #endif
     }
-  } while (g_sStopwatch.timeit() < TIME_BETWEEN_FRAMES_MS);
+  } while (g_sStopwatch.timeit() < g_IntervalBetweenFrames);
 }
 
-void resetStateAndSendReady(bool isHardReset)
+void resetStateAndSendReady(bool isHardReset, uint16_t timeBetweenFrames)
 {
   // Initialize static variables
   g_iCurrentDisplayFrameIndex = 0;
@@ -111,6 +117,7 @@ void resetStateAndSendReady(bool isHardReset)
   g_iCurrentWriteBytePos_Green = FRAMES_TO_WRITE_AHEAD * ONE_FRAME_SIZE; // Write some frames ahead of current display frame
   g_iCurrentWriteBytePos_Red = g_iCurrentWriteBytePos_Green + 1;
   g_iCurrentWriteBytePos_Blue = g_iCurrentWriteBytePos_Red + 1;
+  g_IntervalBetweenFrames = timeBetweenFrames;
   
   // Reset frame decompressor's soft reset sequence detector's state
   g_sFrameDecompressor.reset();
