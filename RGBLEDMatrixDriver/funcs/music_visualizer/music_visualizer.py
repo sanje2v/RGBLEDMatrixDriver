@@ -13,31 +13,33 @@ class music_visualizer:
     # NOTE: Thanks to 'http://www.perbang.dk/rgbgradient/' for HSV gradient wheel color generation
     #       Start color: FF293B, End Color: 01156A
     COLOR_GRADIENT_WHEEL = \
-        ['FF283B', 'FA2F27', 'F54725', 'F05F23', 'EB7521', 'E68B1F', 'E2A11D', 'DDB51C',
-         'D8C91A', 'CBD318', 'AFCE17', '94CA15', '7AC514', '61C012', '48BB11', '31B610',
-         '1AB20E', '0DAD15', '0CA827', '0BA339', '0A9E49', '089A59', '079567', '079075',
-         '068B82', '057F86', '046B82', '03577D', '024578', '023473', '01246E', '00146A']
+        ['800000', '810F00', '832000', '843100', '864200', '885300', '896500', '8B7800',
+         '8D8A00', '7F8E00', '6F9000', '5E9200', '4D9300', '3C9500', '2A9700', '179800',
+         '059A00', '009B0D', '009D21', '009F35', '00A049', '00A25E', '00A473', '00A589',
+         '00A79F', '009CA9', '0089AA', '0075AC', '0061AE', '004CAF', '0037B1', '0021B2']
+        #['FF283B', 'FA2F27', 'F54725', 'F05F23', 'EB7521', 'E68B1F', 'E2A11D', 'DDB51C',
+        # 'D8C91A', 'CBD318', 'AFCE17', '94CA15', '7AC514', '61C012', '48BB11', '31B610',
+        # '1AB20E', '0DAD15', '0CA827', '0BA339', '0A9E49', '089A59', '079567', '079075',
+        # '068B82', '057F86', '046B82', '03577D', '024578', '023473', '01246E', '00146A']
 
 
-    def _readRawAudioDataIntoAudioFrames(self, audio_frames, frames_per_buffer, sample_size, signed):
+    def _readRawAudioDataIntoAudioChannelFrames(self, audio_frames, frames_per_buffer, sample_size, signed):
         # Convert it to proper sample size
-        output_audio_frames = [0] * (self.NUM_AUDIO_CHANNELS * frames_per_buffer)
-        for i in range(0, len(audio_frames), sample_size):
-            output_audio_frames[i // sample_size] = int.from_bytes(audio_frames[i:i+sample_size],
-                                                                   byteorder='little',
-                                                                   signed=signed)
-    
-        return output_audio_frames
+        left_audio_frames = [0] * frames_per_buffer
+        right_audio_frames = [0] * frames_per_buffer
 
-    def _getChannelData(self, audio_frames, channel):
-        assert channel < self.NUM_AUDIO_CHANNELS, "'channel' parameter can only be either 0 for left or 1 for right channel."
+        for i in range(0, len(audio_frames), sample_size):
+            frame_channel_data = int.from_bytes(audio_frames[i:(i+sample_size)],
+                                                byteorder='little',
+                                                signed=signed)
+
+            j = (i // sample_size)
+            if j % 2 == 0:
+                left_audio_frames[j // self.NUM_AUDIO_CHANNELS] = frame_channel_data
+            else:
+                right_audio_frames[j // self.NUM_AUDIO_CHANNELS] = frame_channel_data
     
-        channel_data = [0] * (len(audio_frames) // 2)
-    
-        for i in range(channel, len(audio_frames), 2):
-            channel_data[i // 2] = audio_frames[i]
-    
-        return channel_data
+        return left_audio_frames, right_audio_frames
 
     def _getFFTAmplitudes(self, audio_frames, n):
         audio_frames = (np.abs(np.fft.fft(audio_frames, n=n))[0:(n // 2)]) / n
@@ -48,11 +50,11 @@ class music_visualizer:
     def _scaleFFTAmplitudes(self, fft_amplitudes, max_limit):
         MAGIC_NUMBER = 1000.
         #fft_amplitudes = [int(np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit) for x in fft_amplitudes]
-        #scaler_func = lambda x: min(max(math.log(x + 0.00001), 0.0) / 10.0 * max_limit, max_limit)
-        scaler_func = lambda x: np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit
+        scaler_func = lambda x: min(max(math.log(x + 0.00001) - 2.0, 0.0) / 10.0 * max_limit, max_limit)
+        #scaler_func = lambda x: np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit
         fft_amplitudes = list(map(lambda x: int(scaler_func(x)), fft_amplitudes))
 
-        assert all((x >= 0 and x <= (self.FRAME_WIDTH // 2)) for x in fft_amplitudes), "FFT Amplitude scaling is buggy."
+        assert all((x >= 0 and x <= max_limit) for x in fft_amplitudes), "FFT Amplitude scaling is buggy."
 
         return fft_amplitudes
 
@@ -78,7 +80,6 @@ class music_visualizer:
 
     def __enter__(self):
         def audiodata_arrived(data, frame_count, time_info, status):
-            assert frame_count == self.NUM_AUDIO_FRAMES_PER_BUFFER, "Assumption that callback returns "
             self.raw_audio_frames = data
             return (data, pyaudio.paContinue)
 
@@ -99,13 +100,16 @@ class music_visualizer:
         self.pyaudio.terminate()
 
     def get_frame(self):
-        audio_frames = self._readRawAudioDataIntoAudioFrames(copy(self.raw_audio_frames), self.NUM_AUDIO_FRAMES_PER_BUFFER, self.sample_size, True)
+        left_audio_frames, right_audio_frames = self._readRawAudioDataIntoAudioChannelFrames(copy(self.raw_audio_frames),
+                                                                                             self.NUM_AUDIO_FRAMES_PER_BUFFER,
+                                                                                             self.sample_size,
+                                                                                             True)
 
         # Get FFT Amplitudes of each channel and rescale them from 0 to 'FRAME_WIDTH // 2'
-        left_channel_FFTAmp = self._getFFTAmplitudes(self._getChannelData(audio_frames, channel=0), n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
-        left_channel_FFTAmp = self._scaleFFTAmplitudes(left_channel_FFTAmp, self.FRAME_WIDTH // 2)
-        right_channel_FFTAmp = self._getFFTAmplitudes(self._getChannelData(audio_frames, channel=1), n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
-        right_channel_FFTAmp = self._scaleFFTAmplitudes(right_channel_FFTAmp, self.FRAME_WIDTH // 2)
+        left_channel_FFTAmp = self._getFFTAmplitudes(left_audio_frames, n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
+        left_channel_FFTAmp = self._scaleFFTAmplitudes(left_channel_FFTAmp, self.FRAME_WIDTH)
+        right_channel_FFTAmp = self._getFFTAmplitudes(right_audio_frames, n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
+        right_channel_FFTAmp = self._scaleFFTAmplitudes(right_channel_FFTAmp, self.FRAME_WIDTH)
 
         # Create a deep copy of template to work on
         frame = deepcopy(self.template)
