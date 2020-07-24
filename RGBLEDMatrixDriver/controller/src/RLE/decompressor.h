@@ -17,6 +17,8 @@ private:
 #ifdef DEBUG
     uint16_t m_totalBytesDecompressed;
 #endif
+
+    static uint8_t addDithering(uint8_t dataByte, int8_t amount);
     
 public:
     Decompressor();

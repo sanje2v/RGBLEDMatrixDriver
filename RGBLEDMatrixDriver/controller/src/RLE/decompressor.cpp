@@ -43,10 +43,11 @@ void Decompressor::feed(uint8_t data,
             //       color byte order. This is predicated on the
             //       belief that this more sequential write would
             //       be less taxing on memory writes.
+            auto ditherAmount = static_cast<int8_t>(random(-7, 8));
             if (greenTimes > 0)
             {
                 --greenTimes;
-                pFramesBuffer[*pCurrentWriteBytePos_Green] = greenByte;
+                pFramesBuffer[*pCurrentWriteBytePos_Green] = Decompressor::addDithering(greenByte, ditherAmount);
                 
                 *pCurrentWriteBytePos_Green = (*pCurrentWriteBytePos_Green + NUM_COLOR_CHANNELS) % totalFramesBufferSize;
             }
@@ -54,7 +55,7 @@ void Decompressor::feed(uint8_t data,
             if (redTimes > 0)
             {
                 --redTimes;
-                pFramesBuffer[*pCurrentWriteBytePos_Red] = redByte;
+                pFramesBuffer[*pCurrentWriteBytePos_Red] = Decompressor::addDithering(redByte, ditherAmount);
                 
                 *pCurrentWriteBytePos_Red = (*pCurrentWriteBytePos_Red + NUM_COLOR_CHANNELS) % totalFramesBufferSize;
             }
@@ -62,7 +63,7 @@ void Decompressor::feed(uint8_t data,
             if (blueTimes > 0)
             {
                 --blueTimes;
-                pFramesBuffer[*pCurrentWriteBytePos_Blue] = blueByte;
+                pFramesBuffer[*pCurrentWriteBytePos_Blue] = Decompressor::addDithering(blueByte, ditherAmount);
                 
                 *pCurrentWriteBytePos_Blue = (*pCurrentWriteBytePos_Blue + NUM_COLOR_CHANNELS) % totalFramesBufferSize;
             }
@@ -91,4 +92,11 @@ void Decompressor::reset()
 #ifdef DEBUG
     this->resetTotalBytesDecompressed();
 #endif
+}
+
+uint8_t Decompressor::addDithering(uint8_t dataByte, int8_t amount)
+{
+    return (dataByte == 0x00 ? 
+            dataByte :
+            static_cast<uint8_t>(min(max(static_cast<int16_t>(dataByte) + amount, 0x00), 0xFF)));
 }

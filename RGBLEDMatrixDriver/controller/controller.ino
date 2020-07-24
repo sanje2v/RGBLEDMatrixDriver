@@ -42,6 +42,9 @@ void resetStateAndSendReady(bool, uint16_t=DEFAULT_TIME_BETWEEN_FRAMES_MS);
 //////////////////////////// Start here
 void setup()
 {
+  // Initialize random seed
+  randomSeed(analogRead(1));
+  
   // Initialize UART serial to host
   Serial.begin(SERIAL_BAUD_RATE, SERIAL_8N1);
   
