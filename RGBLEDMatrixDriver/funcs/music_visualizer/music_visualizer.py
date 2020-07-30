@@ -9,7 +9,7 @@ class music_visualizer:
     FRAME_WIDTH, FRAME_HEIGHT = (8, 32)
     NUM_COLOR_CHANNELS = 3
     NUM_AUDIO_CHANNELS = 2
-    NUM_AUDIO_FRAMES_PER_BUFFER = 2**math.ceil(math.log2(FRAME_HEIGHT * 2))
+    NUM_AUDIO_FRAMES_PER_BUFFER = 128 # This value is a power of 2 (optimal for FFT) and good for 44.1-96 kHz sampling rates
     # NOTE: Thanks to 'http://www.perbang.dk/rgbgradient/' for HSV gradient wheel color generation
     #       Start color: FF293B, End Color: 01156A
     COLOR_GRADIENT_WHEEL = \
@@ -41,17 +41,17 @@ class music_visualizer:
     
         return left_audio_frames, right_audio_frames
 
-    def _getFFTAmplitudes(self, audio_frames, n):
-        audio_frames = (np.abs(np.fft.fft(audio_frames, n=n))[0:(n // 2)]) / n
-        assert len(audio_frames) == (n // 2), "BUG: 'getFFT()' must return DC and positive frequencies."
+    def _getFFTAmplitudes(self, audio_frames):
+        audio_frames = (np.abs(np.fft.fft(audio_frames)[:self.FRAME_HEIGHT])) / len(audio_frames)
+        assert len(audio_frames) == self.FRAME_HEIGHT, "BUG: 'getFFT()' must return DC and positive frequencies."
     
         return audio_frames
 
     def _scaleFFTAmplitudes(self, fft_amplitudes, max_limit):
-        MAGIC_NUMBER = 1000.
-        #fft_amplitudes = [int(np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit) for x in fft_amplitudes]
-        scaler_func = lambda x: min(max(math.log(x + 0.00001) - 2.0, 0.0) / 10.0 * max_limit, max_limit)
-        #scaler_func = lambda x: np.fmin(x / MAGIC_NUMBER, 1.0) * max_limit
+        # NOTE: Here we log rescale the FFTs amplitudes such that it looks good. Nothing fancy about this algorithm.
+        MIN_LOG_BOUND = 1.2
+        MAGIC_NUMBER = 10.0
+        scaler_func = lambda x: min(max(math.log(x + 0.00001) - MIN_LOG_BOUND, 0.0) / MAGIC_NUMBER * max_limit, max_limit)
         fft_amplitudes = list(map(lambda x: int(scaler_func(x)), fft_amplitudes))
 
         assert all((x >= 0 and x <= max_limit) for x in fft_amplitudes), "FFT Amplitude scaling is buggy."
@@ -105,10 +105,10 @@ class music_visualizer:
                                                                                              self.sample_size,
                                                                                              True)
 
-        # Get FFT Amplitudes of each channel and rescale them from 0 to 'FRAME_WIDTH // 2'
-        left_channel_FFTAmp = self._getFFTAmplitudes(left_audio_frames, n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
+        # Get FFT Amplitudes of each channel and rescale them from 0 to 'FRAME_WIDTH'
+        left_channel_FFTAmp = self._getFFTAmplitudes(left_audio_frames)
         left_channel_FFTAmp = self._scaleFFTAmplitudes(left_channel_FFTAmp, self.FRAME_WIDTH)
-        right_channel_FFTAmp = self._getFFTAmplitudes(right_audio_frames, n=self.NUM_AUDIO_FRAMES_PER_BUFFER)[:self.FRAME_HEIGHT]
+        right_channel_FFTAmp = self._getFFTAmplitudes(right_audio_frames)
         right_channel_FFTAmp = self._scaleFFTAmplitudes(right_channel_FFTAmp, self.FRAME_WIDTH)
 
         # Create a deep copy of template to work on
