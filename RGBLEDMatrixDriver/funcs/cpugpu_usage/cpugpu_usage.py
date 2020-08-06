@@ -6,9 +6,8 @@ from copy import deepcopy
 
 
 class cpugpu_usage:
-    MAX_LINE_LENGTH_PX = 25
-    LINE_WIDTH = 2
-    LINE_START_FROM_END = -2
+    MAX_LINE_LENGTH_PX = 15
+    LINE_WIDTH = 3
 
 
     def __init__(self):
@@ -49,11 +48,7 @@ class cpugpu_usage:
         cpu_line_length_px = int(self.cpu_usage_percent / 100. * self.MAX_LINE_LENGTH_PX)
         gpu_line_length_px = int(self.gpu_usage_percent / 100. * self.MAX_LINE_LENGTH_PX)
 
-        frame[self.LINE_START_FROM_END:(-cpu_line_length_px + self.LINE_START_FROM_END):-1,\
-              1:(self.LINE_WIDTH+1),\
-              :] = getUsageLineColor(self.cpu_usage_percent)
-        frame[self.LINE_START_FROM_END:(-gpu_line_length_px + self.LINE_START_FROM_END):-1,\
-              5:(5+self.LINE_WIDTH),\
-              :] = getUsageLineColor(self.gpu_usage_percent)
+        frame[1:(cpu_line_length_px + 1), 0:self.LINE_WIDTH, :] = getUsageLineColor(self.cpu_usage_percent)
+        frame[18:(gpu_line_length_px + 18), 0:self.LINE_WIDTH, :] = getUsageLineColor(self.gpu_usage_percent)
 
         return frame.flatten()

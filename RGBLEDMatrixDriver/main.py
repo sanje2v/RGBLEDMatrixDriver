@@ -185,7 +185,7 @@ class Application:
                 def connection_lost(self, exc):
                     self.event_loop.stop()
 
-            with music_visualizer(8) as function:#cpugpu_usage() as function: 
+            with cpugpu_usage() as function: #music_visualizer(13) as function:
                 frame = None
                 compressor = Compressor()
 
