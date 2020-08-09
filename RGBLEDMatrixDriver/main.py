@@ -14,6 +14,7 @@ import tkinter.messagebox as messagebox
 from libs.Compressor import Compressor
 from funcs.cpugpu_usage import cpugpu_usage
 from funcs.music_visualizer import music_visualizer
+from enums import IntervalEnum
 from utils import *
 import settings
 
@@ -134,21 +135,22 @@ class Application:
 
                         #self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
 
-                        self.next_frame = compressor.feed(function.get_frame())
+                        self.next_frame = self.compressor.feed(self.function.get_frame())
                         
                     elif self.controller_ready:
                         if message.startswith('SYNC'):
                             self.transport.write(self.next_frame)
-                            self.next_frame = compressor.feed(function.get_frame())
+                            self.next_frame = self.compressor.feed(self.function.get_frame())
 
                         elif message.startswith('ERROR'):
                             raise Exception(message)
 
-                def __init__(self, event_loop, compressor):
+                def __init__(self, function, event_loop, compressor):
                     self.controller_ready = False
                     self.read_buffer = bytearray()
                     self.transport = None
 
+                    self.function = function
                     self.event_loop = event_loop
                     self.compressor = compressor
                     self.next_frame = None
@@ -170,7 +172,7 @@ class Application:
                         transport.serial.read(transport.serial.in_waiting)
 
                     # Ask controller to reset
-                    transport.write(settings.CONTROLLER_RESET_COMMAND)
+                    transport.write(makeResetCommand(self.function.get_interval()))
 
                 def data_received(self, data):
                     for data_byte in data:
@@ -186,20 +188,9 @@ class Application:
                 def connection_lost(self, exc):
                     self.event_loop.stop()
 
-            with music_visualizer(14) as function:#cpugpu_usage() as function: #
-                frame = None
-                compressor = Compressor()
-
-                frame = compressor.feed(function.get_frame())
-                for i in range(0, len(frame), TOTAL_PRIMARY_COLORS):
-                    r = frame[i] & 0x7
-                    g = frame[i+1] & 0x7
-                    b = frame[i+2] & 0x7
-
-                    assert r != 0 or g != 0 or b != 0, "Bad byte found"
-
+            with music_visualizer(14) as function:#cpugpu_usage() as function:
                 self.event_loop = asyncio.new_event_loop()
-                controller_serialhandler = ControllerSerialHandler(self.event_loop, compressor)
+                controller_serialhandler = ControllerSerialHandler(function, self.event_loop, Compressor())
                 conn = serial_asyncio.create_serial_connection(self.event_loop,
                                                                lambda: controller_serialhandler,
                                                                port,
@@ -208,7 +199,7 @@ class Application:
                 self.event_loop.run_forever()
                 if controller_serialhandler.get_transport() is not None:
                     # Ask controller to reset before exit
-                    controller_serialhandler.get_transport().serial.write(makeResetCommand(function.get_interval()))
+                    controller_serialhandler.get_transport().serial.write(makeResetCommand(IntervalEnum.MSECS_1000))
                     controller_serialhandler.get_transport().serial.flush()
                 self.event_loop.close()
                 self.event_loop = None

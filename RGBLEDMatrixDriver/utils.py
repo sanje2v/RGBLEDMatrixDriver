@@ -1,10 +1,5 @@
-import settings
-
-
 TOTAL_PRIMARY_COLORS = 3    # Red, Green and Blue
-TOTAL_RGBP_BYTES = TOTAL_PRIMARY_COLORS + 1
-ROW_COLOR_ON_BYTE = 0xFF    # Turn all LEDs of a color in a row
-ROW_COLOR_OFF_BYTE = 0x00   # Turn off LEDs of a color in a row
+
 
 # REF: https://chrisalbon.com/python/data_wrangling/break_list_into_chunks_of_equal_size/
 def chunks(l, chunk_size):   # NOTE: 'chunk_size' is number of items per chuck
