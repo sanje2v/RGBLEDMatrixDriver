@@ -1,3 +1,6 @@
+import settings
+
+
 TOTAL_PRIMARY_COLORS = 3    # Red, Green and Blue
 TOTAL_RGBP_BYTES = TOTAL_PRIMARY_COLORS + 1
 ROW_COLOR_ON_BYTE = 0xFF    # Turn all LEDs of a color in a row
@@ -10,17 +13,15 @@ def chunks(l, chunk_size):   # NOTE: 'chunk_size' is number of items per chuck
         # Create an index range for l of chuck_size items:
         yield l[i:i+chunk_size]
 
-
-def spinWait(times):
-    i = 0
-    while(i < times):
-        i += 1
-
-
 def assignDict(src_dict, dest_dict):
     for key in dest_dict.keys():
         dest_dict[key] = src_dict[key]
 
-
 def toSecs(msecs):
     return msecs / 1000.0
+
+def makeResetCommand(interval_enum):
+    interval = interval_enum.value
+    assert interval > 0 and interval < 8, "ERROR: Unsupported interval: {}".format(interval)
+
+    return int.to_bytes((interval << 3), length=1, byteorder='big')

@@ -4,6 +4,8 @@ import numpy as np
 import math
 from copy import copy, deepcopy
 
+from enums import IntervalEnum
+
 
 class music_visualizer:
     FRAME_WIDTH, FRAME_HEIGHT = (8, 32)
@@ -98,6 +100,9 @@ class music_visualizer:
             self.stream.stop_stream()
             self.stream.close()
         self.pyaudio.terminate()
+
+    def get_interval(self):
+        return IntervalEnum.MSECS_100
 
     def get_frame(self):
         left_audio_frames, right_audio_frames = self._readRawAudioDataIntoAudioChannelFrames(copy(self.raw_audio_frames),

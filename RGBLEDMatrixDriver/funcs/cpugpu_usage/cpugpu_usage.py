@@ -4,6 +4,8 @@ import pynvml as nvml   # Python wrapper around NVIDIA NVML DLL
 import numpy as np
 from copy import deepcopy
 
+from enums import IntervalEnum
+
 
 class cpugpu_usage:
     MAX_LINE_LENGTH_PX = 15
@@ -27,6 +29,9 @@ class cpugpu_usage:
 
     def __exit__(self, type, value, traceback):
         pass
+
+    def get_interval(self):
+        return IntervalEnum.MSECS_1000
 
     def get_frame(self):
         # Get CPU and GPU usage percentages

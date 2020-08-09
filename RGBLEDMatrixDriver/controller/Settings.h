@@ -1,7 +1,7 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define SERIAL_BAUD_RATE                      57600          // CAUTION: Higher bitrate might be unstable, do check
+#define SERIAL_BAUD_RATE                      115200          // CAUTION: Higher bitrate might be unstable, do check
 #define READY_MESSAGE                         F("READY\r\n")  // To notify host, controller is ready
 #define SYNC_MESSAGE                          F("SYNC\r\n")   // To notify host, to send frame data
 #define STOP_MESSAGE                          F("STOP\r\n")   // To notify host, to stop sending frame data

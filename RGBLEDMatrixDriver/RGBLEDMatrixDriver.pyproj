@@ -24,6 +24,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="enums.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="funcs\cpugpu_usage\cpugpu_usage.py" />
     <Compile Include="funcs\cpugpu_usage\__init__.py" />
     <Compile Include="funcs\music_visualizer\music_visualizer.py">

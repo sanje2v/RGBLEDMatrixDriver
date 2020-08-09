@@ -14,6 +14,7 @@ import tkinter.messagebox as messagebox
 from libs.Compressor import Compressor
 from funcs.cpugpu_usage import cpugpu_usage
 from funcs.music_visualizer import music_visualizer
+from utils import *
 import settings
 
 
@@ -185,12 +186,12 @@ class Application:
                 def connection_lost(self, exc):
                     self.event_loop.stop()
 
-            with cpugpu_usage() as function: #music_visualizer(13) as function:
+            with music_visualizer(14) as function:#cpugpu_usage() as function: #
                 frame = None
                 compressor = Compressor()
 
                 frame = compressor.feed(function.get_frame())
-                for i in range(0, len(frame), 3):
+                for i in range(0, len(frame), TOTAL_PRIMARY_COLORS):
                     r = frame[i] & 0x7
                     g = frame[i+1] & 0x7
                     b = frame[i+2] & 0x7
@@ -207,7 +208,7 @@ class Application:
                 self.event_loop.run_forever()
                 if controller_serialhandler.get_transport() is not None:
                     # Ask controller to reset before exit
-                    controller_serialhandler.get_transport().serial.write(settings.CONTROLLER_RESET_COMMAND)
+                    controller_serialhandler.get_transport().serial.write(makeResetCommand(function.get_interval()))
                     controller_serialhandler.get_transport().serial.flush()
                 self.event_loop.close()
                 self.event_loop = None
