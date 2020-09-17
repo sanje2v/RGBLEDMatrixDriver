@@ -6,14 +6,14 @@ import serial.tools.list_ports
 import asyncio
 import serial_asyncio
 import threading
+import importlib
+import pkgutil
 import pygubu
 import numpy as np
 import tkinter as tk
 import tkinter.messagebox as messagebox
 
 from libs.Compressor import Compressor
-from funcs.cpugpu_usage import cpugpu_usage
-from funcs.music_visualizer import music_visualizer
 from enums import IntervalEnum
 from utils import *
 import settings
@@ -23,7 +23,9 @@ class Application:
     DISPATCHER_QUEUE_CHECK_PERIOD_MS = 200
 
 
-    def __init__(self, ports, is_service, params):
+    def __init__(self, ports, functions, is_service, params):
+        self.functions = functions
+
         # Create a builder
         self.builder = builder = pygubu.Builder()
 
@@ -36,6 +38,8 @@ class Application:
         # Store references to controls
         self.cmb_ports = builder.get_object('cmb_ports')
         self.btn_connect = builder.get_object('btn_connect')
+        self.cmb_functions = builder.get_object('cmb_functions')
+        self.btn_settings = builder.get_object('btn_settings')
         self.txt_serialoutput = builder.get_object('txt_serialoutput')
         self.sbr_serialoutput = builder.get_object('sbr_serialoutput')
         self.lbl_status = builder.get_object('lbl_status')
@@ -60,7 +64,13 @@ class Application:
         self.cmb_ports['values'] = ports
 
         # Select first COM port
-        self.builder.get_variable('cmb_ports_selected').set(ports[0])
+        self.builder.get_variable('cmb_ports_selected').set(self.cmb_ports['values'][0])
+
+        # Add function modules to combo box
+        self.cmb_functions['values'] = list(functions.keys())
+
+        # Select first function
+        self.builder.get_variable('cmb_functions_selected').set(self.cmb_functions['values'][0])
 
         # Prepare dispatcher which is used to dispatch work from worker thread to GUI thread
         self.gui_dispatcher_queue = []
@@ -68,7 +78,7 @@ class Application:
         self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
                                                                  self.gui_dispatcher)
 
-    def thread_worker_func(self, port):
+    def thread_worker_func(self, port, function_class):
         # Utility functions
         def writeToController(self, serialToController, data, flush=False):
             serialToController.write(data)
@@ -90,32 +100,6 @@ class Application:
         def sendCommandToControllerIfAny(worker_dispatcher_queue, serialToController):
             while (worker_dispatcher_queue):
                 worker_dispatcher_queue.pop(0)(serialToController)
-
-        # TEST ONLY
-        #NUM_FRAMES = 20
-        #ONE_FRAME_SIZE = 768
-        #NUM_COLOR_CHANNELS = 3
-        #FRAMES = []
-        #COLOR_WHEEL = [[b'\xF9', b'\x01', b'\x01'],
-        #               [b'\xF9', b'\xF9', b'\x01'],
-        #               [b'\x01', b'\xF9', b'\x01'],
-        #               [b'\x01', b'\xF9', b'\xF9'],
-        #               [b'\x01', b'\x01', b'\xF9'],
-        #               [b'\x01', b'\xF9', b'\xF9'],
-        #               [b'\xF9', b'\xF9', b'\xF9']]
-
-        #for i in range(NUM_FRAMES):
-        #    COLOR = COLOR_WHEEL[i % len(COLOR_WHEEL)]
-        #    FRAMES.append([])
-
-        #    for j in range(0, ONE_FRAME_SIZE, NUM_COLOR_CHANNELS):
-        #        for k in range(NUM_COLOR_CHANNELS):
-        #            FRAMES[i].append(COLOR[k])
-
-        #for i in range(0, NUM_FRAMES):
-        #    FRAMES[i] = b''.join(FRAMES[i])
-
-        #assert len(FRAMES) == NUM_FRAMES and len(FRAMES[0]) == ONE_FRAME_SIZE, "Total bytes in 'FRAMES' must be multiple of one frame size."
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
@@ -188,7 +172,8 @@ class Application:
                 def connection_lost(self, exc):
                     self.event_loop.stop()
 
-            with music_visualizer(14) as function:#cpugpu_usage() as function:
+            #with music_visualizer(7) as function:#cpugpu_usage() as function:
+            with function_class() as function:
                 self.event_loop = asyncio.new_event_loop()
                 controller_serialhandler = ControllerSerialHandler(function, self.event_loop, Compressor())
                 conn = serial_asyncio.create_serial_connection(self.event_loop,
@@ -216,9 +201,10 @@ class Application:
         try:
             # Dispatch COM port name for worker thread to communicate
             selected_com_port = self.builder.get_variable('cmb_ports_selected').get()
+            selected_function = self.functions[self.builder.get_variable('cmb_functions_selected').get()]
 
             self.thread_worker = threading.Thread(target=self.thread_worker_func,
-                                                  args=(selected_com_port,))
+                                                  args=(selected_com_port, getattr(importlib.import_module(selected_function[0]), selected_function[1])))
             self.thread_worker.start()
 
         except Exception as ex:
@@ -258,10 +244,17 @@ if __name__ == '__main__':
         print("ERROR: No COM ports were found in your system! Aborted.")
         exit(-1)
 
+    functions = list(filter(lambda m: m.ispkg, pkgutil.iter_modules(['funcs'])))
+    if not functions:
+        print("ERROR: No function modules were found in 'funcs' directory! Aborted.")
+        exit(-1)
+    functions = dict(map(lambda m: (getattr(getattr(importlib.import_module(m.module_finder.path + '.' + m.name), m.name), 'name')(), \
+                                    [m.module_finder.path + '.' + m.name, m.name]), functions))
+
     is_service = ('--as-service' in sys.argv) and ('--params' in sys.argv)
     params = None
 
-    app = Application([x.device for x in com_ports], is_service, params)
+    app = Application([x.device for x in com_ports], functions, is_service, params)
     app.run()
 
     exit(0)

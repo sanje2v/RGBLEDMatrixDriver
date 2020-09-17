@@ -12,6 +12,10 @@ class cpugpu_usage:
     LINE_WIDTH = 3
 
 
+    @staticmethod
+    def name():
+        return 'CPU and GPU usage meter'
+    
     def __init__(self):
         # Need to load template image
         self.template = imageio.imread('./funcs/cpugpu_usage/template.bmp')
@@ -31,7 +35,7 @@ class cpugpu_usage:
         pass
 
     def get_interval(self):
-        return IntervalEnum.MSECS_1000
+        return IntervalEnum.MSECS_500
 
     def get_frame(self):
         # Get CPU and GPU usage percentages

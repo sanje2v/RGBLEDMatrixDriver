@@ -25,6 +25,10 @@ class music_visualizer:
         # '068B82', '057F86', '046B82', '03577D', '024578', '023473', '01246E', '00146A']
 
 
+    @staticmethod
+    def name():
+        return 'Music visualizer'
+    
     def _readRawAudioDataIntoAudioChannelFrames(self, audio_frames, frames_per_buffer, sample_size, signed):
         # Convert it to proper sample size
         left_audio_frames = [0] * frames_per_buffer
