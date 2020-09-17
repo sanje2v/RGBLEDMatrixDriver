@@ -138,6 +138,7 @@
             </child>
             <child>
               <object class="ttk.Button" id="btn_settings">
+                <property name="command">btn_settings_click</property>
                 <property name="text" translatable="yes">Settings...</property>
                 <property name="width">15</property>
                 <layout>

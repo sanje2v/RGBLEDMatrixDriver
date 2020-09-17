@@ -212,6 +212,10 @@ class Application:
             self.btn_connect.configure(state='normal')
 
 
+    def btn_settings_click(self):
+        pass
+
+
     def btn_reset_click(self):
         self.isControllerReady = False
         self.lbl_status.configure(text="Reset sent. Waiting for ready message from controller.")
