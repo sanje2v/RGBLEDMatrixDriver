@@ -13,3 +13,4 @@ CONTROLLER_COM_PORT_CONFIG = \
     'timeout': None,        # Read timeout in secs or None for never timeout
     'write_timeout': None   # In secs
 }
+FUNCTIONS_DIRECTORY = 'funcs'

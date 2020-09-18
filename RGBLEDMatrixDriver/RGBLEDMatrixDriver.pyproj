@@ -32,6 +32,7 @@
     <Compile Include="funcs\music_visualizer\music_visualizer.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="funcs\music_visualizer\settings.py" />
     <Compile Include="funcs\music_visualizer\test.py" />
     <Compile Include="funcs\music_visualizer\__init__.py">
       <SubType>Code</SubType>

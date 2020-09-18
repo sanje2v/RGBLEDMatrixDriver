@@ -1,0 +1,85 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface>
+  <object class="tk.Toplevel" id="dialog">
+    <property name="geometry">230x120</property>
+    <property name="height">120</property>
+    <property name="relief">flat</property>
+    <property name="resizable">none</property>
+    <property name="title" translatable="yes">Settings</property>
+    <property name="width">230</property>
+    <child>
+      <object class="ttk.Frame" id="contents">
+        <property name="padding">15</property>
+        <property name="takefocus">false</property>
+        <layout>
+          <property name="column">0</property>
+          <property name="propagate">True</property>
+          <property name="row">0</property>
+          <property name="sticky">e</property>
+        </layout>
+        <child>
+          <object class="ttk.Frame" id="Frame_1">
+            <layout>
+              <property name="column">0</property>
+              <property name="propagate">True</property>
+              <property name="row">0</property>
+              <property name="sticky">ew</property>
+            </layout>
+            <child>
+              <object class="ttk.Label" id="Label_1">
+                <property name="text" translatable="yes">Select output audio device:</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="propagate">True</property>
+                  <property name="row">0</property>
+                  <property name="sticky">w</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Combobox" id="cmb_outputaudiodevices">
+                <property name="cursor">arrow</property>
+                <property name="exportselection">true</property>
+                <property name="justify">left</property>
+                <property name="state">readonly</property>
+                <property name="takefocus">true</property>
+                <property name="textvariable">string:cmb_outputaudiodevices_selected</property>
+                <property name="width">30</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="propagate">True</property>
+                  <property name="row">1</property>
+                </layout>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Frame" id="Frame_2">
+            <property name="height">200</property>
+            <property name="width">200</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="pady">25</property>
+              <property name="propagate">True</property>
+              <property name="row">1</property>
+              <property name="sticky">e</property>
+            </layout>
+            <child>
+              <object class="ttk.Button" id="btn_ok">
+                <property name="command">btn_ok_click</property>
+                <property name="default">active</property>
+                <property name="text" translatable="yes">OK</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="propagate">True</property>
+                  <property name="row">0</property>
+                </layout>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

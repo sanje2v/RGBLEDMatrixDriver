@@ -6,6 +6,8 @@ from copy import copy, deepcopy
 
 from enums import IntervalEnum
 
+from .settings import settings
+
 
 class music_visualizer:
     FRAME_WIDTH, FRAME_HEIGHT = (8, 32)
@@ -65,7 +67,7 @@ class music_visualizer:
         return fft_amplitudes
 
 
-    def __init__(self, audio_device_index):
+    def __init__(self, path_prefix):
         assert len(self.COLOR_GRADIENT_WHEEL) == self.FRAME_HEIGHT, \
             "Need exactly {} colors in 'COLOR_GRADIENT_WHEEL'".format(self.FRAME_HEIGHT)
         # Convert hex string (for easy programmer modification) to bytearrays in 'COLOR_GRADIENT_WHEEL'
@@ -75,6 +77,7 @@ class music_visualizer:
         self.template = np.zeros((self.FRAME_HEIGHT, self.FRAME_WIDTH, self.NUM_COLOR_CHANNELS),
                                  dtype=np.uint8)
         self.pyaudio = PyAudio()
+        audio_device_index = settings(path_prefix).get_selected_audio_device_index()
         self.audio_device_info = self.pyaudio.get_device_info_by_index(audio_device_index)
         if self.audio_device_info['maxOutputChannels'] < self.NUM_AUDIO_CHANNELS:
             raise Exception("Audio output device should be at least stereo.")

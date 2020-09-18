@@ -1,4 +1,5 @@
 import os
+import os.path
 import sys
 import time
 import serial
@@ -27,23 +28,22 @@ class Application:
         self.functions = functions
 
         # Create a builder
-        self.builder = builder = pygubu.Builder()
+        self.builder = pygubu.Builder()
 
         # Load mainwindow ui file and set its icon
-        builder.add_from_file(os.path.join('ui', 'mainwindow.ui'))
-        self.mainwindow = builder.get_object('mainwindow')
-        self.mainwindow.iconbitmap(os.path.join('ui', 'app.ico'))
+        self.builder.add_from_file(os.path.join('uis', 'mainwindow.ui'))
+        self.mainwindow = self.builder.get_object('mainwindow')
+        self.mainwindow.iconbitmap(os.path.join('uis', 'app.ico'))
         self.mainwindow.protocol('WM_DELETE_WINDOW', self.quit)
 
         # Store references to controls
-        self.cmb_ports = builder.get_object('cmb_ports')
-        self.btn_connect = builder.get_object('btn_connect')
-        self.cmb_functions = builder.get_object('cmb_functions')
-        self.btn_settings = builder.get_object('btn_settings')
-        self.txt_serialoutput = builder.get_object('txt_serialoutput')
-        self.sbr_serialoutput = builder.get_object('sbr_serialoutput')
-        self.lbl_status = builder.get_object('lbl_status')
-        self.btn_reset = builder.get_object('btn_reset')
+        self.cmb_ports = self.builder.get_object('cmb_ports')
+        self.btn_connect = self.builder.get_object('btn_connect')
+        self.cmb_functions = self.builder.get_object('cmb_functions')
+        self.btn_settings = self.builder.get_object('btn_settings')
+        self.txt_serialoutput = self.builder.get_object('txt_serialoutput')
+        self.sbr_serialoutput = self.builder.get_object('sbr_serialoutput')
+        self.lbl_status = self.builder.get_object('lbl_status')
 
         # Set up controls
         # 1. Wireup scrollbar
@@ -58,7 +58,7 @@ class Application:
         self.event_loop = None
 
         # Configure callbacks
-        builder.connect_callbacks(self)
+        self.builder.connect_callbacks(self)
 
         # Add COM ports to combo box
         self.cmb_ports['values'] = ports
@@ -173,7 +173,7 @@ class Application:
                     self.event_loop.stop()
 
             #with music_visualizer(7) as function:#cpugpu_usage() as function:
-            with function_class() as function:
+            with function_class(os.path.join(settings.FUNCTIONS_DIRECTORY, function_class.__name__)) as function:
                 self.event_loop = asyncio.new_event_loop()
                 controller_serialhandler = ControllerSerialHandler(function, self.event_loop, Compressor())
                 conn = serial_asyncio.create_serial_connection(self.event_loop,
@@ -190,14 +190,10 @@ class Application:
                 self.event_loop = None
 
         except Exception as ex:
-            ex_str = str(ex)
-            self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=ex_str))
+            self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=str(ex)))
 
 
     def btn_connect_click(self):
-        self.btn_connect.configure(state='disabled')
-        self.btn_reset.configure(state='normal')
-
         try:
             # Dispatch COM port name for worker thread to communicate
             selected_com_port = self.builder.get_variable('cmb_ports_selected').get()
@@ -207,19 +203,27 @@ class Application:
                                                   args=(selected_com_port, getattr(importlib.import_module(selected_function[0]), selected_function[1])))
             self.thread_worker.start()
 
+            self.cmb_ports.configure(state='disabled')
+            self.btn_connect.configure(state='disabled')
+            self.cmb_functions.configure(state='disabled')
+            self.btn_settings.configure(state='disabled')
+
         except Exception as ex:
-            messagebox.showerror("Error opening port", str(ex))
-            self.btn_connect.configure(state='normal')
+            messagebox.showerror("Error opening port '{}'!".format(selected_com_port), str(ex), parent=self.mainwindow.winfo_toplevel())
 
 
     def btn_settings_click(self):
-        pass
+        try:
+            selected_function = self.functions[self.builder.get_variable('cmb_functions_selected').get()]
+            selected_function_settings = getattr(importlib.import_module(selected_function[0] + '.settings'),
+                                                 'settings')(os.path.join(settings.FUNCTIONS_DIRECTORY, selected_function[1]))
+            selected_function_settings.show_settings_dialog(self.mainwindow.winfo_toplevel())
 
+        except ModuleNotFoundError:
+            messagebox.showerror("No settings", "There are no settings available for this function.", parent=self.mainwindow.winfo_toplevel())
 
-    def btn_reset_click(self):
-        self.isControllerReady = False
-        self.lbl_status.configure(text="Reset sent. Waiting for ready message from controller.")
-        self.worker_dispatcher_queue.append(lambda serialToController: self.writeToController(serialToController, settings.CONTROLLER_RESET_COMMAND))
+        except Exception as ex:
+            messagebox.showerror("Error opening settings", str(ex), parent=self.mainwindow.winfo_toplevel())
 
 
     def gui_dispatcher(self):
@@ -248,9 +252,9 @@ if __name__ == '__main__':
         print("ERROR: No COM ports were found in your system! Aborted.")
         exit(-1)
 
-    functions = list(filter(lambda m: m.ispkg, pkgutil.iter_modules(['funcs'])))
+    functions = list(filter(lambda m: m.ispkg, pkgutil.iter_modules([settings.FUNCTIONS_DIRECTORY])))
     if not functions:
-        print("ERROR: No function modules were found in 'funcs' directory! Aborted.")
+        print("ERROR: No function modules were found in '{}' directory! Aborted.".format(settings.FUNCTIONS_DIRECTORY))
         exit(-1)
     functions = dict(map(lambda m: (getattr(getattr(importlib.import_module(m.module_finder.path + '.' + m.name), m.name), 'name')(), \
                                     [m.module_finder.path + '.' + m.name, m.name]), functions))

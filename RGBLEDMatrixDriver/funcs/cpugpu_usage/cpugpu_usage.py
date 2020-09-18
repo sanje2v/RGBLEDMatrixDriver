@@ -1,3 +1,4 @@
+import os.path
 import imageio
 import psutil
 import pynvml as nvml   # Python wrapper around NVIDIA NVML DLL
@@ -16,9 +17,9 @@ class cpugpu_usage:
     def name():
         return 'CPU and GPU usage meter'
     
-    def __init__(self):
+    def __init__(self, path_prefix):
         # Need to load template image
-        self.template = imageio.imread('./funcs/cpugpu_usage/template.bmp')
+        self.template = imageio.imread(os.path.join(path_prefix, 'template.bmp'))
 
         # CAUTION: Need to call usage functions at least once
         #          before calling it in 'get_frame()'
