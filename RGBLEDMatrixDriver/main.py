@@ -209,7 +209,7 @@ class Application:
             self.btn_settings.configure(state='disabled')
 
         except Exception as ex:
-            messagebox.showerror("Error opening port '{}'!".format(selected_com_port), str(ex), parent=self.mainwindow.winfo_toplevel())
+            messagebox.showerror("Error opening port '{}'!".format(selected_com_port), str(ex), parent=self.mainwindow)
 
 
     def btn_settings_click(self):
@@ -220,10 +220,10 @@ class Application:
             selected_function_settings.show_settings_dialog(self.mainwindow.winfo_toplevel())
 
         except ModuleNotFoundError:
-            messagebox.showerror("No settings", "There are no settings available for this function.", parent=self.mainwindow.winfo_toplevel())
+            messagebox.showerror("No settings", "There are no settings available for this function.", parent=self.mainwindow)
 
         except Exception as ex:
-            messagebox.showerror("Error opening settings", str(ex), parent=self.mainwindow.winfo_toplevel())
+            messagebox.showerror("Error opening settings", str(ex), parent=self.mainwindow)
 
 
     def gui_dispatcher(self):

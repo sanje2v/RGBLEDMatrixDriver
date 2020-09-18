@@ -33,6 +33,16 @@ class settings:
         with open(filename, 'w') as settings_json_file:
             settings_json_file.write(json.dumps(settings_dict))
 
+    @staticmethod
+    def _center_dialog(parent, dialog):
+        parent.update()
+        x = parent.winfo_rootx()
+        y = parent.winfo_rooty()
+        x = x + (parent.winfo_width() // 2) - (dialog.toplevel.winfo_reqwidth() // 2)
+        y = y + (parent.winfo_height() // 2) - (dialog.toplevel.winfo_reqheight() // 2)
+        geometry = '+{0}+{1}'.format(x, y)
+        dialog.toplevel.geometry(geometry)
+
     def __init__(self, path_prefix):
         # Load settings from settings.json file, if available.
         # Else create default file.
@@ -44,8 +54,7 @@ class settings:
         # Load UI
         self.builder = pygubu.Builder()
         self.builder.add_from_file(self.ui_file)
-        self.mainwindow = self.builder.get_object('dialog', parent)
-        self.mainwindow.attributes('-toolwindow', True)
+        self.maindialog = self.builder.get_object('dialog', parent)
         self.builder.connect_callbacks(self)
         self.cmb_outputaudiodevices = self.builder.get_object('cmb_outputaudiodevices')
         self.btn_ok = self.builder.get_object('btn_ok')
@@ -54,6 +63,10 @@ class settings:
         self.cmb_outputaudiodevices['values'] = list(settings._get_compatible_audio_devices_with_indices().keys())
         self.builder.get_variable('cmb_outputaudiodevices_selected').set(self.cmb_outputaudiodevices['values'][0] \
                                                                             if self.settings_json is None else self.settings_json['device_name'])
+
+        # First, center this dialog relative to parent and then show it as modal dialog
+        settings._center_dialog(parent, self.maindialog)
+        self.maindialog.run()
 
     def get_selected_audio_device_index(self):
         compatible_audio_devices_with_indices = settings._get_compatible_audio_devices_with_indices()
@@ -66,4 +79,4 @@ class settings:
     def btn_ok_click(self):
         settings._save_settings_to_file(self.settings_file, 
                                         {'device_name': self.builder.get_variable('cmb_outputaudiodevices_selected').get()})
-        self.mainwindow.destroy()
+        self.maindialog.destroy()

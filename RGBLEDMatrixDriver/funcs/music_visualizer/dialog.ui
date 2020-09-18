@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <interface>
-  <object class="tk.Toplevel" id="dialog">
+  <object class="pygubu.builder.widgets.dialog" id="dialog">
     <property name="geometry">230x120</property>
     <property name="height">120</property>
-    <property name="relief">flat</property>
     <property name="resizable">none</property>
+    <property name="modal">True</property>
     <property name="title" translatable="yes">Settings</property>
     <property name="width">230</property>
     <child>
