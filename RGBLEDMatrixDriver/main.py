@@ -24,68 +24,76 @@ class Application:
     DISPATCHER_QUEUE_CHECK_PERIOD_MS = 200
 
 
-    def __init__(self, ports, functions, is_service, params):
+    def __init__(self, ports, functions, is_daemon, selected_com_port=None, selected_function=None):
         self.functions = functions
+        self.is_daemon = is_daemon
 
         # Create a builder
-        self.builder = pygubu.Builder()
+        if not is_daemon:
+            self.builder = pygubu.Builder()
 
-        # Load mainwindow ui file and set its icon
-        self.builder.add_from_file(os.path.join('uis', 'mainwindow.ui'))
-        self.mainwindow = self.builder.get_object('mainwindow')
+        # Load mainwindow ui file, if GUI else make a dummy window and set its icon
+        if is_daemon:
+            self.mainwindow = tk.Tk()
+            self.mainwindow.overrideredirect(1)
+        else:
+            self.builder.add_from_file(os.path.join('uis', 'mainwindow.ui'))
+            self.mainwindow = self.builder.get_object('mainwindow')
         self.mainwindow.iconbitmap(os.path.join('uis', 'app.ico'))
         self.mainwindow.protocol('WM_DELETE_WINDOW', self.quit)
 
-        # Store references to controls
-        self.cmb_ports = self.builder.get_object('cmb_ports')
-        self.btn_connect = self.builder.get_object('btn_connect')
-        self.cmb_functions = self.builder.get_object('cmb_functions')
-        self.btn_settings = self.builder.get_object('btn_settings')
-        self.txt_serialoutput = self.builder.get_object('txt_serialoutput')
-        self.sbr_serialoutput = self.builder.get_object('sbr_serialoutput')
-        self.lbl_status = self.builder.get_object('lbl_status')
+        if is_daemon:
+            self.mainwindow.withdraw()
 
-        # Set up controls
-        # 1. Wireup scrollbar
-        self.sbr_serialoutput.configure(command=self.txt_serialoutput.yview)
-        self.txt_serialoutput.configure(yscrollcommand=self.sbr_serialoutput.set)
+            self.thread_worker = threading.Thread(target=self.thread_worker_func,
+                                                  args=(selected_com_port, getattr(importlib.import_module(selected_function[0]), selected_function[1])))
+            self.thread_worker.start()
+        else:
+            # Store references to controls
+            self.cmb_ports = self.builder.get_object('cmb_ports')
+            self.btn_connect = self.builder.get_object('btn_connect')
+            self.cmb_functions = self.builder.get_object('cmb_functions')
+            self.btn_settings = self.builder.get_object('btn_settings')
+            self.txt_serialoutput = self.builder.get_object('txt_serialoutput')
+            self.sbr_serialoutput = self.builder.get_object('sbr_serialoutput')
+            self.lbl_status = self.builder.get_object('lbl_status')
 
-        # 2. Make 'txt_serialoutput' text control readonly
-        self.txt_serialoutput.bind("<Key>", lambda e: "break")
+            # Set up controls
+            # 1. Wireup scrollbar
+            self.sbr_serialoutput.configure(command=self.txt_serialoutput.yview)
+            self.txt_serialoutput.configure(yscrollcommand=self.sbr_serialoutput.set)
 
-        # Configure variables
-        self.thread_worker = None
-        self.event_loop = None
+            # 2. Make 'txt_serialoutput' text control readonly
+            self.txt_serialoutput.bind("<Key>", lambda e: "break")
 
-        # Configure callbacks
-        self.builder.connect_callbacks(self)
+            # Configure variables
+            self.thread_worker = None
+            self.event_loop = None
 
-        # Add COM ports to combo box
-        self.cmb_ports['values'] = ports
+            # Configure callbacks
+            self.builder.connect_callbacks(self)
 
-        # Select first COM port
-        self.builder.get_variable('cmb_ports_selected').set(self.cmb_ports['values'][0])
+            # Add COM ports to combo box
+            self.cmb_ports['values'] = ports
 
-        # Add function modules to combo box
-        self.cmb_functions['values'] = list(functions.keys())
+            # Select first COM port
+            self.builder.get_variable('cmb_ports_selected').set(self.cmb_ports['values'][0])
 
-        # Select first function
-        self.builder.get_variable('cmb_functions_selected').set(self.cmb_functions['values'][0])
+            # Add function modules to combo box
+            self.cmb_functions['values'] = list(functions.keys())
 
-        # Prepare dispatcher which is used to dispatch work from worker thread to GUI thread
-        self.gui_dispatcher_queue = []
-        self.worker_dispatcher_queue = []
-        self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
-                                                                 self.gui_dispatcher)
+            # Select first function
+            self.builder.get_variable('cmb_functions_selected').set(self.cmb_functions['values'][0])
+
+            # Prepare dispatcher which is used to dispatch work from worker thread to GUI thread
+            self.gui_dispatcher_queue = []
+            self.worker_dispatcher_queue = []
+            self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
+                                                                     self.gui_dispatcher)
 
     def thread_worker_func(self, port, function_class):
         # Utility functions
-        def writeToController(self, serialToController, data, flush=False):
-            serialToController.write(data)
-            if (flush):
-                serialToController.flush()
-
-        def writeOutToUI(message, gui_dispatcher_queue=self.gui_dispatcher_queue, txt_serialoutput=self.txt_serialoutput):
+        def writeOutToUI(message):
             # NOTE: The following should do a deep copy which is needed 'cause
             #       another thread will be accessing this data later
             # NOTE: Tkinter textbox uses '\n' for newline regardless of OS
@@ -93,13 +101,9 @@ class Application:
 
             # We push serial data from controller to a queue which will be
             # accessed by GUI thread later to write text safely to GUI text control
-            gui_dispatcher_queue.append(lambda: txt_serialoutput.insert(tk.END, message))
+            self.gui_dispatcher_queue.append(lambda: self.txt_serialoutput.insert(tk.END, message))
 
             return message
-
-        def sendCommandToControllerIfAny(worker_dispatcher_queue, serialToController):
-            while (worker_dispatcher_queue):
-                worker_dispatcher_queue.pop(0)(serialToController)
 
         # This thread:
         # 1. Reads and shows incoming data from slave Arduino.
@@ -111,13 +115,12 @@ class Application:
 
 
                 def _handle_message(self, message):
-                    writeOutToUI(message)
+                    if not self.is_daemon:
+                        writeOutToUI(message)
 
                     if not self.controller_ready and message == settings.CONTROLLER_READY_MESSAGE:
                         # LED controller is now ready after soft reset
                         self.controller_ready = True
-
-                        #self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text="Controller ready. Sending frames..."))
 
                         self.next_frame = self.compressor.feed(self.function.get_frame())
                         
@@ -129,11 +132,12 @@ class Application:
                         elif message.startswith('ERROR'):
                             raise Exception(message)
 
-                def __init__(self, function, event_loop, compressor):
+                def __init__(self, is_daemon, function, event_loop, compressor):
                     self.controller_ready = False
                     self.read_buffer = bytearray()
                     self.transport = None
 
+                    self.is_daemon = is_daemon
                     self.function = function
                     self.event_loop = event_loop
                     self.compressor = compressor
@@ -172,10 +176,9 @@ class Application:
                 def connection_lost(self, exc):
                     self.event_loop.stop()
 
-            #with music_visualizer(7) as function:#cpugpu_usage() as function:
             with function_class(os.path.join(settings.FUNCTIONS_DIRECTORY, function_class.__name__)) as function:
                 self.event_loop = asyncio.new_event_loop()
-                controller_serialhandler = ControllerSerialHandler(function, self.event_loop, Compressor())
+                controller_serialhandler = ControllerSerialHandler(self.is_daemon, function, self.event_loop, Compressor())
                 conn = serial_asyncio.create_serial_connection(self.event_loop,
                                                                lambda: controller_serialhandler,
                                                                port,
@@ -190,7 +193,8 @@ class Application:
                 self.event_loop = None
 
         except Exception as ex:
-            self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=str(ex)))
+            if not self.is_daemon:
+                self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=str(ex)))
 
 
     def btn_connect_click(self):
@@ -235,7 +239,8 @@ class Application:
 
 
     def quit(self, event=None):
-        self.mainwindow.after_cancel(self.dispatcher_queue_checker_id)
+        if not self.is_daemon:
+            self.mainwindow.after_cancel(self.dispatcher_queue_checker_id)
         self.mainwindow.destroy()
 
         if self.event_loop is not None:
@@ -252,17 +257,21 @@ if __name__ == '__main__':
         print("ERROR: No COM ports were found in your system! Aborted.")
         exit(-1)
 
+    # Get a list of functions python packages that are available inside 'FUNCTIONS_DIRECTORY' folder
     functions = list(filter(lambda m: m.ispkg, pkgutil.iter_modules([settings.FUNCTIONS_DIRECTORY])))
     if not functions:
         print("ERROR: No function modules were found in '{}' directory! Aborted.".format(settings.FUNCTIONS_DIRECTORY))
         exit(-1)
+    # Store as a list of function full name and tuples of module path with module name
     functions = dict(map(lambda m: (getattr(getattr(importlib.import_module(m.module_finder.path + '.' + m.name), m.name), 'name')(), \
                                     [m.module_finder.path + '.' + m.name, m.name]), functions))
 
-    is_service = ('--as-service' in sys.argv) and ('--params' in sys.argv)
-    params = None
+    # Determine if we are to run as daemon or GUI program
+    is_daemon = '--as-daemon' in sys.argv and len(sys.argv) == 4
+    selected_com_port = sys.argv[2] if is_daemon else None
+    selected_function = functions[sys.argv[3]] if is_daemon else None
 
-    app = Application([x.device for x in com_ports], functions, is_service, params)
+    app = Application([x.device for x in com_ports], functions, is_daemon, selected_com_port, selected_function)
     app.run()
 
     exit(0)
