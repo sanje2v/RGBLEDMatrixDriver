@@ -259,8 +259,8 @@ if __name__ == '__main__':
     # Determine if we are being asked to kill hidden daemon window
     if '--kill-daemon' in sys.argv:
         hwndDaemonWindow = win32gui.FindWindow(None, settings.DAEMON_WINDOW_TITLE)
-        assert hwndDaemonWindow != 0, "Failed to find window"
-        win32api.PostMessage(hwndDaemonWindow, win32con.WM_CLOSE, 0x0, 0x0)
+        if hwndDaemonWindow != 0:
+            win32api.PostMessage(hwndDaemonWindow, win32con.WM_CLOSE, 0x0, 0x0)
         exit(0)
 
     com_ports = serial.tools.list_ports.comports()
