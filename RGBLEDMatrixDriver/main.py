@@ -10,6 +10,9 @@ import threading
 import importlib
 import pkgutil
 import pygubu
+import win32gui
+import win32api
+import win32con
 import numpy as np
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -36,6 +39,7 @@ class Application:
         if is_daemon:
             self.mainwindow = tk.Tk()
             self.mainwindow.overrideredirect(1)
+            self.mainwindow.title(settings.DAEMON_WINDOW_TITLE)
         else:
             self.builder.add_from_file(os.path.join('uis', 'mainwindow.ui'))
             self.mainwindow = self.builder.get_object('mainwindow')
@@ -252,6 +256,13 @@ class Application:
 
 
 if __name__ == '__main__':
+    # Determine if we are being asked to kill hidden daemon window
+    if '--kill-daemon' in sys.argv:
+        hwndDaemonWindow = win32gui.FindWindow(None, settings.DAEMON_WINDOW_TITLE)
+        assert hwndDaemonWindow != 0, "Failed to find window"
+        win32api.PostMessage(hwndDaemonWindow, win32con.WM_CLOSE, 0x0, 0x0)
+        exit(0)
+
     com_ports = serial.tools.list_ports.comports()
     if not com_ports:
         print("ERROR: No COM ports were found in your system! Aborted.")
