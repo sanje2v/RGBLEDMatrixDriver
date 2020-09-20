@@ -10,6 +10,7 @@ import threading
 import importlib
 import pkgutil
 import pygubu
+import psutil
 import win32gui
 import win32api
 import win32con
@@ -47,10 +48,20 @@ class Application:
         self.mainwindow.protocol('WM_DELETE_WINDOW', self.quit)
 
         if is_daemon:
+            # Hide daemon window
             self.mainwindow.withdraw()
 
+            # Setup a Windows shutdown handler, so that we can cleanly exit this daemon process
+            def funcShutdownHandler(ctrl_type):
+                self.quit()
+
+                return win32con.TRUE    # Tell Windows we have handled this event
+            win32api.SetConsoleCtrlHandler(funcShutdownHandler, win32con.TRUE)
+
+            # Start worker thread to communicate with controller hardware
             self.thread_worker = threading.Thread(target=self.thread_worker_func,
-                                                  args=(selected_com_port, getattr(importlib.import_module(selected_function[0]), selected_function[1])))
+                                                  args=(selected_com_port, \
+                                                        getattr(importlib.import_module(selected_function[0]), selected_function[1])))
             self.thread_worker.start()
         else:
             # Store references to controls
@@ -245,17 +256,28 @@ class Application:
     def quit(self, event=None):
         if not self.is_daemon:
             self.mainwindow.after_cancel(self.dispatcher_queue_checker_id)
-        self.mainwindow.destroy()
+        self.mainwindow.quit()
 
         if self.event_loop is not None:
             self.event_loop.stop()
-            self.thread_worker.join(2.0)
+            self.thread_worker.join(1.0)
+
 
     def run(self):
         self.mainwindow.mainloop()
 
 
 if __name__ == '__main__':
+    ############### FOR DEBUGGING COMMANDLINE ARGS PROCESSING #################
+    #sys.argv.append('--as-daemon')
+    #sys.argv.append('COM5')
+    #sys.argv.append('CPU and GPU usage meter')
+    
+    # OR
+    
+    #sys.argv.append('--kill-daemon')
+    ###########################################################################
+
     # Determine if we are being asked to kill hidden daemon window
     if '--kill-daemon' in sys.argv:
         hwndDaemonWindow = win32gui.FindWindow(None, settings.DAEMON_WINDOW_TITLE)
@@ -281,6 +303,11 @@ if __name__ == '__main__':
     is_daemon = '--as-daemon' in sys.argv and len(sys.argv) == 4
     selected_com_port = sys.argv[2] if is_daemon else None
     selected_function = functions[sys.argv[3]] if is_daemon else None
+
+    # NOTE: Windows Scheduler runs processes as low priority and cannot be changed with UI.
+    # Hence, we counter that and also due to the fact that we need high priority for data sending,
+    # we manually set to high priority here.
+    psutil.Process().nice(psutil.HIGH_PRIORITY_CLASS)
 
     app = Application([x.device for x in com_ports], functions, is_daemon, selected_com_port, selected_function)
     app.run()
