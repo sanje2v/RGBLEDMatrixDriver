@@ -140,11 +140,11 @@ class Application:
                         self.next_frame = self.compressor.feed(self.function.get_frame())
                         
                     elif self.controller_ready:
-                        if message.startswith('SYNC'):
+                        if message.startswith(settings.CONTROLLER_SYNC_MESSAGE):
                             self.transport.write(self.next_frame)
                             self.next_frame = self.compressor.feed(self.function.get_frame())
 
-                        elif message.startswith('ERROR'):
+                        elif message.startswith(settings.CONTROLLER_ERROR_MESSAGE):
                             raise Exception(message)
 
                 def __init__(self, is_daemon, function, event_loop, compressor):
