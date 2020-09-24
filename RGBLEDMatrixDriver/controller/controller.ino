@@ -1,7 +1,7 @@
 /*
  * This code is to be executed in an BBC micro:bit.
  * NOTE: It may be necessary to readjust stack and heap sizes.
- *       Please refer to https://sanje2v.wordpress.com/ for 
+ *       Please refer to https://github.com/sanje2v/RGBLEDMatrixDriver for 
  *       more information.
  * Written by: Sanjeev Sharma. Copyright 2020.
 */
