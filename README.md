@@ -21,8 +21,9 @@ The files under 'controller' folder are to be programmed into micro:bit using Ar
 - The function plugin 'CPU and GPU usage monitor' assumes you have a NVIDIA GPU and uses the nvml python library to query GPU usage information. The library requires that ‘nvml.dll’ be located at _‘%PROGRAMFILES%\NVIDIA Corporation\NVSMI’_ but this DLL may be installed in ‘System32’ directory by NVIDIA’s driver installer. So, instead of copying this DLL, creating a symbolic link is advisable using ‘mklink’ command.
 - Make note of the COM port used by micro:bit to communicate to it.
 - The program will run in GUI mode with 'python main.py'.
-- To run in daemon mode pass arguments as follows: _–as-daemon ‘<COM port>’ ‘<Full name of function defined by name() for each function module’_. For example: _python main.py –as-daemon ‘COM5’ ‘CPU and GPU usage monitor’_.
+- To run in daemon mode pass arguments as follows: _–as-daemon ‘<COM port>’ ‘<Full name of function defined by name() for each function module’_. For example: _‘python main.py –as-daemon ‘COM5’ ‘CPU and GPU usage monitor’_.
 - Similarly, to cleanly terminate a background daemon process pass _–kill-daemon_ command line parameter.
+- Windows  _‘USB selective suspend’_. feature might interfere with Serial over USB function by breaking TX line after an unpredictable period. It can be disabled in _‘Device manager’_.
 
 ## For LED matrix housing case
 If you would like to print a 3D housing case for the LED matrix, a model file is available at _'3DModels\DesktopCaseLEDMatrixHousing.3mf'_.
