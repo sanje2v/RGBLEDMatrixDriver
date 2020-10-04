@@ -209,7 +209,8 @@ class Application:
 
         except Exception as ex:
             if not self.is_daemon:
-                self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=str(ex)))
+                ex_str = str(ex)  # CAUTION: Needs to be outside separately as 'ex' will be out of scope outside this block
+                self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=ex_str))
 
 
     def btn_connect_click(self):
