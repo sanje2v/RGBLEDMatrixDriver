@@ -1,5 +1,9 @@
-TOTAL_PRIMARY_COLORS = 3    # Red, Green and Blue
 
+
+def check_version(version, major, minor):
+    if type(version) == str:
+        version = tuple(int(x) for x in version.split('.'))
+    return version[0] >= major and version[1] >= minor
 
 # REF: https://chrisalbon.com/python/data_wrangling/break_list_into_chunks_of_equal_size/
 def chunks(l, chunk_size):   # NOTE: 'chunk_size' is number of items per chuck

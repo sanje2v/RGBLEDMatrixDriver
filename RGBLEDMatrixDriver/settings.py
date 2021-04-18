@@ -1,4 +1,9 @@
+import collections
 import serial
+
+
+version_tuple = collections.namedtuple("Row", ["major", "minor"])
+MIN_PYTHON_VERSION = version_tuple(major=3, minor=7)
 
 # COM Port settings
 CONTROLLER_MESSAGE_END_SEQUENCE_BYTES = b'\r\n'

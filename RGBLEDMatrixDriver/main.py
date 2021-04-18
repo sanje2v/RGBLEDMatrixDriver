@@ -14,7 +14,6 @@ import psutil
 import win32gui
 import win32api
 import win32con
-import numpy as np
 import tkinter as tk
 import tkinter.messagebox as messagebox
 
@@ -138,10 +137,10 @@ class Application:
                         self.controller_ready = True
 
                         self.next_frame = self.compressor.feed(self.function.get_frame())
-                        
+
                     elif self.controller_ready:
                         if message.startswith(settings.CONTROLLER_SYNC_MESSAGE):
-                            self.transport.write(self.next_frame)
+                            self.get_serial().write(self.next_frame)
                             self.next_frame = self.compressor.feed(self.function.get_frame())
 
                         elif message.startswith(settings.CONTROLLER_ERROR_MESSAGE):
@@ -158,24 +157,33 @@ class Application:
                     self.compressor = compressor
                     self.next_frame = None
 
-                def get_transport(self):
-                    return self.transport
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, exc_type, exc_value, exc_traceback):
+                    if self.transport:
+                        self.get_serial().write(makeResetCommand(IntervalEnum.MSECS_1000))
+                        self.get_serial().flush()
+
+                def get_serial(self):
+                    return self.transport.serial
 
                 def connection_made(self, transport):
                     self.transport = transport
-                    transport.serial.rts = False
+                    self.get_serial().rts = False
 
-                    transport.serial.set_buffer_size(rx_size=256, tx_size=2048)
+                    self.get_serial().set_buffer_size(rx_size=256, tx_size=2048)
 
-                    transport.serial.reset_input_buffer()
-                    transport.serial.reset_output_buffer()
+                    self.get_serial().reset_input_buffer()
+                    self.get_serial().reset_output_buffer()
 
                     time.sleep(.1)
-                    while transport.serial.in_waiting:
-                        transport.serial.read(transport.serial.in_waiting)
+                    while self.get_serial().in_waiting:
+                        self.get_serial().read(self.get_serial().in_waiting)
 
                     # Ask controller to reset
-                    transport.write(makeResetCommand(self.function.get_interval()))
+                    self.get_serial().write(makeResetCommand(self.function.get_interval()))
+                    self.get_serial().flush()
 
                 def data_received(self, data):
                     for data_byte in data:
@@ -193,17 +201,13 @@ class Application:
 
             with function_class(os.path.join(settings.FUNCTIONS_DIRECTORY, function_class.__name__)) as function:
                 self.event_loop = asyncio.new_event_loop()
-                controller_serialhandler = ControllerSerialHandler(self.is_daemon, function, self.event_loop, Compressor())
-                conn = serial_asyncio.create_serial_connection(self.event_loop,
-                                                               lambda: controller_serialhandler,
-                                                               port,
-                                                               **settings.CONTROLLER_COM_PORT_CONFIG)
-                self.event_loop.run_until_complete(conn)
-                self.event_loop.run_forever()
-                if controller_serialhandler.get_transport() is not None:
-                    # Ask controller to reset before exit
-                    controller_serialhandler.get_transport().serial.write(makeResetCommand(IntervalEnum.MSECS_1000))
-                    controller_serialhandler.get_transport().serial.flush()
+                with ControllerSerialHandler(self.is_daemon, function, self.event_loop, Compressor()) as controller_serialhandler:
+                    conn = serial_asyncio.create_serial_connection(self.event_loop,
+                                                                   lambda: controller_serialhandler,
+                                                                   port,
+                                                                   **settings.CONTROLLER_COM_PORT_CONFIG)
+                    self.event_loop.run_until_complete(conn)
+                    self.event_loop.run_forever()
                 self.event_loop.close()
                 self.event_loop = None
 
@@ -269,6 +273,9 @@ class Application:
 
 
 if __name__ == '__main__':
+    assert check_version(sys.version_info, *settings.MIN_PYTHON_VERSION), \
+        FATAL("This program needs at least Python {0:d}.{1:d} interpreter.".format(*settings.MIN_PYTHON_VERSION))
+
     ############### FOR DEBUGGING COMMANDLINE ARGS PROCESSING #################
     #sys.argv.append('--as-daemon')
     #sys.argv.append('COM5')

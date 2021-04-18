@@ -64,6 +64,7 @@
   <ItemGroup>
     <Content Include="libs\Compressor\__pycache__\compressor.cpython-36.pyc" />
     <Content Include="libs\Compressor\__pycache__\__init__.cpython-36.pyc" />
+    <Content Include="requirements.txt" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="funcs\" />
