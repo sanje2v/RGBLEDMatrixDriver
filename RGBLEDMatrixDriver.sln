@@ -7,6 +7,11 @@ Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "RGBLEDMatrixDriver", "RGBLE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElevatedInformationProviderService", "ElevatedInformationProviderService\ElevatedInformationProviderService.csproj", "{78EC6F2C-2833-4AC7-A58A-0EEC1F573FC8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{DBE8B8A9-16D3-4CD8-A101-246B7B75FD7D}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
