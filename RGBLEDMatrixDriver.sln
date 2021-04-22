@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.29102.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "RGBLEDMatrixDriver", "RGBLEDMatrixDriver\RGBLEDMatrixDriver.pyproj", "{2397B613-283F-4FA0-8300-30ACF18AF0E4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElevatedInformationProviderService", "ElevatedInformationProviderService\ElevatedInformationProviderService.csproj", "{78EC6F2C-2833-4AC7-A58A-0EEC1F573FC8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2397B613-283F-4FA0-8300-30ACF18AF0E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2397B613-283F-4FA0-8300-30ACF18AF0E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78EC6F2C-2833-4AC7-A58A-0EEC1F573FC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78EC6F2C-2833-4AC7-A58A-0EEC1F573FC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78EC6F2C-2833-4AC7-A58A-0EEC1F573FC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78EC6F2C-2833-4AC7-A58A-0EEC1F573FC8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -197,6 +197,7 @@ class Application:
                             self._handle_message(message)
 
                 def connection_lost(self, exc):
+                    self.transport = None
                     self.event_loop.stop()
 
             with function_class(os.path.join(settings.FUNCTIONS_DIRECTORY, function_class.__name__)) as function:
