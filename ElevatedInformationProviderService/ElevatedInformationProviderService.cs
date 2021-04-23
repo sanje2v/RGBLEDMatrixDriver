@@ -76,11 +76,24 @@ namespace ElevatedInformationProviderService
                 while (this._pipe_server.IsConnected)
                 {
                     var bytesRead = await this._pipe_server.ReadAsync(readBuffer, 0, readBuffer.Length, cancellationToken);
-                    if (bytesRead > 0 && Encoding.UTF8.GetString(readBuffer) == "GetCPUPackageTemp")
+                    if (bytesRead > 0)
                     {
-                        var writeBuffer = BitConverter.GetBytes(GetCPUPackageTemp());
-                        Debug.Assert(writeBuffer.Length == sizeof(float));
-                        await this._pipe_server.WriteAsync(writeBuffer, 0, writeBuffer.Length, cancellationToken);
+                        // Convert bytes, got from client program, to string and remove all trailing null characters
+                        var message = Encoding.UTF8.GetString(readBuffer, 0, bytesRead);
+
+                        if (message == "GetCPUPackageTemp")
+                        {
+                            var writeBuffer = BitConverter.GetBytes(GetCPUPackageTemp());
+                            Debug.Assert(writeBuffer.Length == sizeof(float));
+                            await this._pipe_server.WriteAsync(writeBuffer, 0, writeBuffer.Length, cancellationToken);
+                        }
+                        else
+                        {
+                            // Unknown message. We just return 0.0
+                            var writeBuffer = BitConverter.GetBytes(0.0f);
+                            Debug.Assert(writeBuffer.Length == sizeof(float));
+                            await this._pipe_server.WriteAsync(writeBuffer, 0, writeBuffer.Length, cancellationToken);
+                        }
                     }
                 }
             }

@@ -29,40 +29,40 @@ namespace ElevatedInformationProviderService
         /// </summary>
         private void InitializeComponent()
         {
-            this.serviceController1 = new System.ServiceProcess.ServiceController();
-            this.serviceProcessInstaller1 = new System.ServiceProcess.ServiceProcessInstaller();
-            this.serviceInstaller1 = new System.ServiceProcess.ServiceInstaller();
+            this.serviceController = new System.ServiceProcess.ServiceController();
+            this.serviceProcessInstaller = new System.ServiceProcess.ServiceProcessInstaller();
+            this.serviceInstaller = new System.ServiceProcess.ServiceInstaller();
             // 
-            // serviceController1
+            // serviceController
             // 
-            this.serviceController1.ServiceName = "Elevated Information Provider Service";
+            this.serviceController.ServiceName = "Elevated Information Provider Service";
             // 
-            // serviceProcessInstaller1
+            // serviceProcessInstaller
             // 
-            this.serviceProcessInstaller1.Account = System.ServiceProcess.ServiceAccount.LocalSystem;
-            this.serviceProcessInstaller1.Password = null;
-            this.serviceProcessInstaller1.Username = null;
+            this.serviceProcessInstaller.Account = System.ServiceProcess.ServiceAccount.LocalSystem;
+            this.serviceProcessInstaller.Password = null;
+            this.serviceProcessInstaller.Username = null;
             // 
-            // serviceInstaller1
+            // serviceInstaller
             // 
-            this.serviceInstaller1.Description = "This service provides information, only available to administrators, such as CPU " +
+            this.serviceInstaller.Description = "This service provides information, only available to administrators, such as CPU " +
     "core temperature via named pipe.";
-            this.serviceInstaller1.DisplayName = "Elevated Information Provider Service";
-            this.serviceInstaller1.ServiceName = "Elevated Information Provider Service";
-            this.serviceInstaller1.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
+            this.serviceInstaller.DisplayName = "Elevated Information Provider Service";
+            this.serviceInstaller.ServiceName = "Elevated Information Provider Service";
+            this.serviceInstaller.AfterInstall += new System.Configuration.Install.InstallEventHandler(this.serviceInstaller_AfterInstall);
             // 
             // ProjectInstaller
             // 
             this.Installers.AddRange(new System.Configuration.Install.Installer[] {
-            this.serviceProcessInstaller1,
-            this.serviceInstaller1});
+            this.serviceProcessInstaller,
+            this.serviceInstaller});
 
         }
 
         #endregion
 
-        private System.ServiceProcess.ServiceController serviceController1;
-        private System.ServiceProcess.ServiceProcessInstaller serviceProcessInstaller1;
-        private System.ServiceProcess.ServiceInstaller serviceInstaller1;
+        private System.ServiceProcess.ServiceController serviceController;
+        private System.ServiceProcess.ServiceProcessInstaller serviceProcessInstaller;
+        private System.ServiceProcess.ServiceInstaller serviceInstaller;
     }
 }

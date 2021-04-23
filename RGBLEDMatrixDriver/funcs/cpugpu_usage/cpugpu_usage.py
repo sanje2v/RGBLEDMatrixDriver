@@ -2,6 +2,8 @@ import os.path
 import struct
 import imageio
 import psutil
+import time
+import subprocess
 import pynvml as nvml   # Python wrapper around NVIDIA NVML DLL
 import numpy as np
 from copy import deepcopy
@@ -10,6 +12,7 @@ from enums import IntervalEnum
 
 
 class cpugpu_usage:
+    SERVICE_NAME = 'Elevated Information Provider Service'
     CPU_TEMPERATURE_SERVICE_PIPE = r'\\.\pipe\ElevatedInformationProviderService'
     SIZE_OF_FLOAT = 4
     MAX_LINE_LENGTH_PX = 15
@@ -28,6 +31,10 @@ class cpugpu_usage:
     def __init__(self, path_prefix):
         # Need to load template image
         self.template = imageio.imread(os.path.join(path_prefix, 'template.bmp'))
+
+        # Start 'Elevated Information Provider Service' and open pipe to it to read CPU core temperature
+        subprocess.run(['sc.exe', 'start', self.SERVICE_NAME])
+        time.sleep(0.5)
 
         # CAUTION: Need to call usage functions at least once
         #          before calling it in 'get_frame()'
@@ -54,6 +61,7 @@ class cpugpu_usage:
     def __exit__(self, type, value, traceback):
         if self.cpu_temperature_service_pipe:
             self.cpu_temperature_service_pipe.close()
+            subprocess.run(['sc.exe', 'stop', self.SERVICE_NAME])
         nvml.nvmlShutdown()
 
     def get_interval(self):
