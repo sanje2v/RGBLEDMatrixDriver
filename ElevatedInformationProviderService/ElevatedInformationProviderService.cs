@@ -78,9 +78,8 @@ namespace ElevatedInformationProviderService
                     var bytesRead = await this._pipe_server.ReadAsync(readBuffer, 0, readBuffer.Length, cancellationToken);
                     if (bytesRead > 0)
                     {
-                        // Convert bytes, got from client program, to string and remove all trailing null characters
+                        // Convert bytes, got from client program, to string
                         var message = Encoding.UTF8.GetString(readBuffer, 0, bytesRead);
-
                         if (message == "GetCPUPackageTemp")
                         {
                             var writeBuffer = BitConverter.GetBytes(GetCPUPackageTemp());
