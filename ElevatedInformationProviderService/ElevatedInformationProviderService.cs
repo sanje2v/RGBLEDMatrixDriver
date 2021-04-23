@@ -117,7 +117,7 @@ namespace ElevatedInformationProviderService
 
         private PipeSecurity CreatePipeSecurity()
         {
-            // Allow Everyone read access to the pipe
+            // Allow Authenticated Users to read and write access to the service's pipe
             var pipeSecurity = new PipeSecurity();
             pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null),
                                        PipeAccessRights.ReadWrite, AccessControlType.Allow));
