@@ -14,6 +14,7 @@ import psutil
 import win32gui
 import win32api
 import win32con
+import win32console
 import tkinter as tk
 import tkinter.messagebox as messagebox
 
@@ -49,6 +50,11 @@ class Application:
         if is_daemon:
             # Hide daemon window
             self.mainwindow.withdraw()
+
+            # If there is console window created by 'python.exe', hide it
+            hwnd_console = win32console.GetConsoleWindow()
+            if hwnd_console != 0:
+                win32gui.ShowWindow(hwnd_console, win32con.SW_HIDE)
 
             # Setup a Windows shutdown handler, so that we can cleanly exit this daemon process
             def funcShutdownHandler(ctrl_type):
