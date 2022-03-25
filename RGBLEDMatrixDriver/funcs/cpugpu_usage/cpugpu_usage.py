@@ -33,8 +33,9 @@ class cpugpu_usage:
         self.template = imageio.imread(os.path.join(path_prefix, 'template.bmp'))
 
         # Start 'Elevated Information Provider Service' and open pipe to it to read CPU core temperature
-        subprocess.run(['sc.exe', 'start', self.SERVICE_NAME])
-        time.sleep(0.5)
+        # CAUTION: We use 'net.exe' instead of 'sc.exe' because we want to start the service synchronously
+        if subprocess.run(['net.exe', 'start', self.SERVICE_NAME]).returncode not in [0, 2]:    # Service must correct start or have already started
+            raise RuntimeException(f"Couldn't start '{self.SERVICE_NAME}'!")
 
         # CAUTION: Need to call usage functions at least once
         #          before calling it in 'get_frame()'
@@ -61,7 +62,7 @@ class cpugpu_usage:
     def __exit__(self, type, value, traceback):
         if self.cpu_temperature_service_pipe:
             self.cpu_temperature_service_pipe.close()
-            subprocess.run(['sc.exe', 'stop', self.SERVICE_NAME])
+            subprocess.run(['sc.exe', 'stop', self.SERVICE_NAME])   # NOTE: We use 'sc.exe' here because we want to stop the service asynchronously
         nvml.nvmlShutdown()
 
     def get_interval(self):

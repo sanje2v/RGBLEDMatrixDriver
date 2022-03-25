@@ -1,5 +1,6 @@
 import os
 import os.path
+import tempfile
 import sys
 import time
 import serial
@@ -29,6 +30,7 @@ class Application:
 
 
     def __init__(self, ports, functions, is_daemon, selected_com_port=None, selected_function=None):
+        assert ports, "No COM ports given to 'Application.__init()'!"
         self.functions = functions
         self.is_daemon = is_daemon
 
@@ -67,6 +69,7 @@ class Application:
             self.thread_worker = threading.Thread(target=self.thread_worker_func,
                                                   args=(selected_com_port, \
                                                         getattr(importlib.import_module(selected_function[0]), selected_function[1])))
+            self.event_loop = None
             self.thread_worker.start()
         else:
             # Store references to controls
@@ -105,11 +108,10 @@ class Application:
             # Select first function
             self.builder.get_variable('cmb_functions_selected').set(self.cmb_functions['values'][0])
 
-            # Prepare dispatcher which is used to dispatch work from worker thread to GUI thread
-            self.gui_dispatcher_queue = []
-            self.worker_dispatcher_queue = []
-            self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
-                                                                     self.gui_dispatcher)
+        # Prepare dispatcher which is used to dispatch work from worker thread to GUI thread
+        self.gui_dispatcher_queue = []
+        self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS,
+                                                                    self.gui_dispatcher)
 
     def thread_worker_func(self, port, function_class):
         # Utility functions
@@ -219,8 +221,13 @@ class Application:
                 self.event_loop = None
 
         except Exception as ex:
-            if not self.is_daemon:
-                ex_str = str(ex)  # CAUTION: Needs to be outside separately as 'ex' will be out of scope outside this block
+            ex_str = str(ex)  # CAUTION: Needs to be outside separately as 'ex' will be out of scope outside this block
+
+            if self.is_daemon:
+                with open(os.path.join(tempfile.gettempdir(), 'RGBLEDMatrixDriver_error.log'), 'wt') as log:
+                    log.write(ex_str)
+                self.gui_dispatcher_queue.append(lambda: self.quit(return_code=-1))   # Propagates exception in worker to main thread and quits application
+            else:
                 self.gui_dispatcher_queue.append(lambda: self.lbl_status.configure(text=ex_str))
 
 
@@ -240,7 +247,7 @@ class Application:
             self.btn_settings.configure(state='disabled')
 
         except Exception as ex:
-            messagebox.showerror("Error opening port '{}'!".format(selected_com_port), str(ex), parent=self.mainwindow)
+            messagebox.showerror(f"Error opening port '{selected_com_port}'!", str(ex), parent=self.mainwindow)
 
 
     def btn_settings_click(self):
@@ -265,7 +272,7 @@ class Application:
         self.dispatcher_queue_checker_id = self.mainwindow.after(self.DISPATCHER_QUEUE_CHECK_PERIOD_MS, self.gui_dispatcher)
 
 
-    def quit(self, event=None):
+    def quit(self, return_code=0):
         if not self.is_daemon:
             self.mainwindow.after_cancel(self.dispatcher_queue_checker_id)
         self.mainwindow.quit()
@@ -273,6 +280,8 @@ class Application:
         if self.event_loop is not None:
             self.event_loop.stop()
             self.thread_worker.join(1.0)
+
+        exit(return_code)
 
 
     def run(self):
