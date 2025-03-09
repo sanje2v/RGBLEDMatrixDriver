@@ -13,7 +13,7 @@
 
 // Local libraries
 #include "src/Adafruit_NeoPixel_UnmanagedBuffer/Adafruit_NeoPixel_Unmanagedbuf.h"
-#include "src/Stopwatch/stopwatch.h"
+#include "src/stopwatch/stopwatch.h"
 #include "src/RLE/decompressor.h"
 
 

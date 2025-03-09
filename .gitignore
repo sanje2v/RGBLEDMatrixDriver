@@ -342,3 +342,4 @@ healthchecksdb
 # ADDED
 env/
 *.hex
+.vscode/

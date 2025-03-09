@@ -290,7 +290,7 @@ class Application:
 
 if __name__ == '__main__':
     assert check_version(sys.version_info, *settings.MIN_PYTHON_VERSION), \
-        FATAL("This program needs at least Python {0:d}.{1:d} interpreter.".format(*settings.MIN_PYTHON_VERSION))
+        print("This program needs at least Python {0:d}.{1:d} interpreter.".format(*settings.MIN_PYTHON_VERSION))
 
     ############### FOR DEBUGGING COMMANDLINE ARGS PROCESSING #################
     #sys.argv.append('--as-daemon')
