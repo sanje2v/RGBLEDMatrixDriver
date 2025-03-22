@@ -50,7 +50,7 @@ try:
 
                 assert (check_index % (0xFF+1)) < len(DATA), "Out of index: {}".format((check_index % (0xFF+1)))
                 if (in_data != DATA[(check_index % (0xFF+1))]):
-                    raise Exception("Check failed at index: {0}, wanted {1} but was {2}.".format(check_index, DATA[(check_index % (0xFF+1))], in_data))
+                    raise ValueError("Check failed at index: {0}, wanted {1} but was {2}.".format(check_index, DATA[(check_index % (0xFF+1))], in_data))
 
                 check_index += 1;
 

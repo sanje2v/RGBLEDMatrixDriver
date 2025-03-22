@@ -35,7 +35,7 @@ class cpugpu_usage:
         # Start 'Elevated Information Provider Service' and open pipe to it to read CPU core temperature
         # CAUTION: We use 'net.exe' instead of 'sc.exe' because we want to start the service synchronously
         if subprocess.run(['net.exe', 'start', self.SERVICE_NAME]).returncode not in [0, 2]:    # Service must correct start or have already started
-            raise RuntimeException(f"Couldn't start '{self.SERVICE_NAME}'!")
+            raise RuntimeError(f"Couldn't start '{self.SERVICE_NAME}'!")
 
         # CAUTION: Need to call usage functions at least once
         #          before calling it in 'get_frame()'
@@ -52,7 +52,7 @@ class cpugpu_usage:
         self.cpu_usage_percent = psutil.cpu_percent()
         self.cpu_temperature_service_pipe = self._get_service_pipe()
         if not self.cpu_temperature_service_pipe:
-            raise Exception("This function needs 'Elevated Information Provider Service' service to be installed!")
+            raise RuntimeError("This function needs 'Elevated Information Provider Service' service to be installed!")
 
         nvml.nvmlInit()  # CAUTION: Must be called before any other nvml functions
         assert nvml.nvmlDeviceGetCount() > 0, "No NVIDIA GPU found."

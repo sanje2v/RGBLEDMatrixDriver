@@ -152,7 +152,7 @@ class Application:
                             self.next_frame = self.compressor.feed(self.function.get_frame())
 
                         elif message.startswith(settings.CONTROLLER_ERROR_MESSAGE):
-                            raise Exception(message)
+                            raise ValueError(message)
 
                 def __init__(self, is_daemon, function, event_loop, compressor):
                     self.controller_ready = False

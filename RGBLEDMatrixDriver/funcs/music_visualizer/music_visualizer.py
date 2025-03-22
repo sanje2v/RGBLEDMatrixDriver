@@ -80,7 +80,7 @@ class music_visualizer:
         audio_device_index = settings(path_prefix).get_selected_audio_device_index()
         self.audio_device_info = self.pyaudio.get_device_info_by_index(audio_device_index)
         if self.audio_device_info['maxOutputChannels'] < self.NUM_AUDIO_CHANNELS:
-            raise Exception("Audio output device should be at least stereo.")
+            raise ValueError("Audio output device should be at least stereo.")
 
         self.format = pyaudio.paInt16
         self.sample_size = pyaudio.get_sample_size(self.format)
