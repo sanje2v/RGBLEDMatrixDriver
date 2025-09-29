@@ -13,7 +13,7 @@ For more detailed description of this project, please visit this [blog](https://
 
 Before doing anything else:
 - Disable Bluetooth related system code for micro:bit to free memory for frame buffer by setting 'Softdevice' under 'Tools' menu of your Arduino IDE to 'None'.
-- Redefine stack and heap default memory allocation specified by _'gcc_startup_nrf51.S'_ under _'%USERPROFILE%\AppData\Local\Arduino15\packages\sandeepmistry\hardware\nRF5\0.6.0\cores\nRF5\SDK\components\toolchain\gcc'_. The 'Stack_Size' should be set to 224 and 'Heap_Size' to 32. A sample modified _'gcc_startup_nrf51.S'_ can be found under _'tests/gcc_startup_nrf51.S_modified_sample'_.
+- Redefine stack and heap default memory allocation specified by _'%USERPROFILE%\AppData\Local\Arduino15\packages\sandeepmistry\hardware\nRF5\0.6.0\cores\nRF5\SDK\components\toolchain\gcc\gcc_startup_nrf51.S'_. (This package, if no longer available [online](https://sandeepmistry.github.io/arduino-nRF5/package_nRF5_boards_index.json), copy from _'RGBLEDMatrixDriver\RGBLEDMatrixDriver\controller\arduino_packages'_). The 'Stack_Size' should be set to 224 and 'Heap_Size' to 32. A sample modified _'gcc_startup_nrf51.S'_ can be found under _'tests/gcc_startup_nrf51.S_modified_sample'_.
 
 ## For micro:bit
 
